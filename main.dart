@@ -2,9 +2,14 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-void main() => runApp(const RumahTanggaApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('id_ID', null);
+  runApp(const RumahTanggaApp());
+}
 
 const String kDefaultApiUrl =
     'https://script.google.com/macros/s/AKfycbxcJu1lR7UhCmw1IzAjW9Dl-sU8aQb6kEyWP1RbNXnOWfm7-vRyPaRrL4bGDnbjM9s/exec';
@@ -353,10 +358,10 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             if (!d.cukup)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
+              const Padding(
+                padding: EdgeInsets.only(top: 8),
                 child: Row(
-                  children: const [
+                  children: [
                     Icon(Icons.warning, color: Colors.red, size: 16),
                     SizedBox(width: 4),
                     Text('Tidak cukup!',
