@@ -1,0 +1,58 @@
+name: Build APK Rumah Tangga
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: 'stable'
+          cache: true
+
+      - name: Buat project Flutter
+        run: flutter create --org com.rumahtangga --project-name rumah_tangga_app .
+
+      - name: Pakai pubspec custom
+        run: cp pubspec_custom.yaml pubspec.yaml
+
+      - name: Copy main.dart
+        run: cp main.dart lib/main.dart
+
+      - name: Pastikan izin INTERNET
+        run: |
+          MANIFEST=android/app/src/main/AndroidManifest.xml
+          if ! grep -q 'android.permission.INTERNET' $MANIFEST; then
+            sed -i 's|<application|<uses-permission android:name="android.permission.INTERNET"/>\n    <application|' $MANIFEST
+          fi
+
+      - name: Update Kotlin ke 1.9.22
+        run: |
+          sed -i 's/id "org.jetbrains.kotlin.android" version "[^"]*"/id "org.jetbrains.kotlin.android" version "1.9.22"/' android/settings.gradle
+          sed -i "s/ext.kotlin_version = .*/ext.kotlin_version = '1.9.22'/" android/build.gradle || true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build APK
+        run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: rumah-tangga-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
