@@ -33,9 +33,6 @@ jobs:
       - name: Copy main.dart
         run: cp main.dart lib/main.dart
 
-      - name: Copy icon
-        run: cp icon.jpg ./icon.jpg
-
       - name: Pastikan izin INTERNET
         run: |
           MANIFEST=android/app/src/main/AndroidManifest.xml
