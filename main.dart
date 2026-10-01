@@ -606,7 +606,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   // ===== FILTER BARU =====
   List<int> _listTahun() {
-    final set = <int>{DateTime.now().year};
+    final set = <int>{};
+    for (int th = 2025; th <= 2035; th++) {
+      set.add(th);
+    }
     cache.forEach((tgl, _) {
       if (tgl.length >= 4) {
         final th = int.tryParse(tgl.substring(0, 4));
@@ -644,7 +647,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       bulanAktif = DateTime.now().month;
     }
 
-    final bisaKembali = !(filter.type == FilterType.bulanIni);
+    final bisaKembali = filter.type != FilterType.bulanIni;
 
     final r = await showModalBottomSheet<PeriodeFilter?>(
       context: context,
@@ -743,8 +746,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<void> _pilihCustom() async {
     final r = await showDateRangePicker(
       context: context,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2100),
+      firstDate: DateTime(2025),
+      lastDate: DateTime(2035),
       helpText: 'PILIH RENTANG',
       saveText: 'PILIH', cancelText: 'BATAL',
       builder: (c, ch) => Theme(data: ThemeData.dark().copyWith(
@@ -1156,7 +1159,7 @@ class _TambahPengPageState extends State<TambahPengPage> {
           trailing: const Icon(Icons.calendar_today),
           onTap: () async {
             final p = await showDatePicker(context: context, initialDate: _tgl,
-              firstDate: DateTime(2020), lastDate: DateTime(2100));
+              firstDate: DateTime(2025), lastDate: DateTime(2035));
             if (p != null) setState(() => _tgl = p);
           }),
         const SizedBox(height: 8),
@@ -1227,7 +1230,7 @@ class _TambahGajiPageState extends State<TambahGajiPage> {
           trailing: const Icon(Icons.calendar_today),
           onTap: () async {
             final p = await showDatePicker(context: context, initialDate: _tgl,
-              firstDate: DateTime(2020), lastDate: DateTime(2100));
+              firstDate: DateTime(2025), lastDate: DateTime(2035));
             if (p != null) setState(() => _tgl = p);
           }),
         const SizedBox(height: 12),
@@ -1294,7 +1297,7 @@ class _SaldoAwalPageState extends State<SaldoAwalPage> {
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
-    final tahunList = List.generate(6, (i) => now.year - 3 + i);
+    final tahunList = List.generate(11, (i) => 2025 + i);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Atur Saldo Awal'), backgroundColor: BG),
@@ -1376,7 +1379,7 @@ class _LihatSheetPageState extends State<LihatSheetPage> {
     if (dataTab.isEmpty) { _snack('Tidak ada data'); return; }
     final now = DateTime.now();
     final range = await showDateRangePicker(context: context,
-      firstDate: DateTime(2020), lastDate: DateTime(2100),
+      firstDate: DateTime(2025), lastDate: DateTime(2035),
       initialDateRange: DateTimeRange(start: now.subtract(const Duration(days: 7)), end: now),
       helpText: 'PILIH RENTANG HAPUS', saveText: 'PILIH', cancelText: 'BATAL',
       builder: (c, ch) => Theme(data: ThemeData.dark().copyWith(
