@@ -13,5 +13,16 @@ dependencies:
   http: 1.2.0
   intl: 0.19.0
 
+dev_dependencies:
+  flutter_launcher_icons: ^0.13.1
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "icon.jpg"
+  adaptive_icon_background: "#A8E6CF"
+  adaptive_icon_foreground: "icon.jpg"
+  remove_alpha_ios: true
+
 flutter:
   uses-material-design: true
