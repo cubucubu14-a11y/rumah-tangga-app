@@ -179,6 +179,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   List<Gaji> gaji = [];
   List<int> pengDel = [];
   List<int> gajiDel = [];
+  // cache: { "2026-09-29": { "toko": 225000 }, ... }
   Map<String, Map<String, int>> cache = {};
   Map<int, int> saldoAwal = {};
 
@@ -206,15 +207,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (s == AppLifecycleState.resumed && !firstRun) _sync(silent: true);
   }
 
-  // ===== PARSE CACHE (bantu) =====
   Map<String, Map<String, int>> _parseCache(Map raw) {
     final result = <String, Map<String, int>>{};
     raw.forEach((k, v) {
       final vm = v as Map;
       result[k.toString()] = {
         'toko': (vm['toko'] as num?)?.toInt() ?? 0,
-        'lain': (vm['lain'] as num?)?.toInt() ?? 0,
-        'keluarKasir': (vm['keluarKasir'] as num?)?.toInt() ?? 0,
       };
     });
     return result;
@@ -265,12 +263,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   // ===== HITUNGAN =====
+  // Masuk periode = omset toko (periode) + gaji (periode)
   int get pemasukanPeriode {
     int total = 0;
     cache.forEach((tgl, v) {
       final t = DateTime.parse(tgl);
       if (t.isBefore(filter.mulai) || t.isAfter(filter.akhir)) return;
-      total += (v['toko'] ?? 0) + (v['lain'] ?? 0);
+      total += (v['toko'] ?? 0);
     });
     for (final g in gaji) {
       final t = DateTime.parse(g.tanggal);
@@ -280,7 +279,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return total;
   }
 
-  // "Keluar" di home = pengeluaran RT saja (sesuai pilihan A)
+  // Keluar periode = pengeluaran RT saja
   int get pengeluaranPeriode {
     int total = 0;
     for (final p in peng) {
@@ -291,7 +290,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return total;
   }
 
-  // SISA kumulatif = Saldo Awal + (toko+lain+gaji) - RT - pengeluaranKasir
+  // SISA = Saldo Awal + (toko+gaji kumulatif s/d akhir filter) - RT kumulatif
   int get sisa {
     final thn = filter.akhir.year;
     final saldo = saldoAwal[thn] ?? 0;
@@ -300,7 +299,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     cache.forEach((tgl, v) {
       final t = DateTime.parse(tgl);
       if (t.year != thn || t.isAfter(filter.akhir)) return;
-      masukKum += (v['toko'] ?? 0) + (v['lain'] ?? 0);
+      masukKum += (v['toko'] ?? 0);
     });
     for (final g in gaji) {
       final t = DateTime.parse(g.tanggal);
@@ -315,14 +314,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       keluarRTKum += p.nominal;
     }
 
-    int keluarKasirKum = 0;
-    cache.forEach((tgl, v) {
-      final t = DateTime.parse(tgl);
-      if (t.year != thn || t.isAfter(filter.akhir)) return;
-      keluarKasirKum += (v['keluarKasir'] ?? 0);
-    });
-
-    return saldo + masukKum - keluarRTKum - keluarKasirKum;
+    return saldo + masukKum - keluarRTKum;
   }
 
   int get belumSync =>
@@ -373,7 +365,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (syncing) return;
     setState(() { syncing = true; offline = false; });
     try {
-      // 1. Push pending
       final pn = peng.where((t) => !t.synced).toList();
       final gn = gaji.where((t) => !t.synced).toList();
       final pd = List<int>.from(pengDel);
@@ -412,15 +403,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       gajiDel = sisaG;
       await _saveAll();
 
-      // 2. Refresh cache pemasukan + pengeluaran kasir
-      if (mounted) setState(() => progress = 'Refresh cache...');
+      // Refresh cache omset toko
+      if (mounted) setState(() => progress = 'Refresh omset...');
       final rc = await apiGet({'action': 'get-cache-pemasukan'});
       if (rc['status'] == 'ok') {
         cache = _parseCache(rc['cache'] as Map);
         await _saveAll();
       }
 
-      // 3. Cek hantu
+      // Cek hantu
       if (mounted) setState(() => progress = 'Cek hantu...');
       final rh = await apiGet({'action': 'cek-hantu', 'hari': '7'});
       int hantuDihapus = 0;
@@ -1012,19 +1003,18 @@ class DetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    int omsetToko = 0, lainLain = 0, gajiPeriode = 0;
+    int omsetToko = 0, gajiPeriode = 0;
     cache.forEach((tgl, v) {
       final t = DateTime.parse(tgl);
       if (t.isBefore(filter.mulai) || t.isAfter(filter.akhir)) return;
       omsetToko += v['toko'] ?? 0;
-      lainLain += v['lain'] ?? 0;
     });
     for (final g in gaji) {
       final t = DateTime.parse(g.tanggal);
       if (t.isBefore(filter.mulai) || t.isAfter(filter.akhir)) continue;
       gajiPeriode += g.nominal;
     }
-    final totalMasuk = omsetToko + lainLain + gajiPeriode;
+    final totalMasuk = omsetToko + gajiPeriode;
 
     int keluarRTPeriode = 0;
     for (final p in peng) {
@@ -1033,14 +1023,6 @@ class DetailPage extends StatelessWidget {
       keluarRTPeriode += p.nominal;
     }
 
-    int keluarKasirPeriode = 0;
-    cache.forEach((tgl, v) {
-      final t = DateTime.parse(tgl);
-      if (t.isBefore(filter.mulai) || t.isAfter(filter.akhir)) return;
-      keluarKasirPeriode += v['keluarKasir'] ?? 0;
-    });
-
-    final totalKeluar = keluarRTPeriode + keluarKasirPeriode;
     final cukup = sisa >= 0;
 
     return Scaffold(
@@ -1058,7 +1040,6 @@ class DetailPage extends StatelessWidget {
               const SizedBox(height: 10),
               _row('Omset Toko', omsetToko),
               _row('Gaji', gajiPeriode),
-              _row('Lain-lain', lainLain),
               const Divider(color: Colors.white24, height: 20),
               _row('Total Masuk', totalMasuk, bold: true, color: GREEN),
             ])),
@@ -1067,12 +1048,9 @@ class DetailPage extends StatelessWidget {
           Container(padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(color: CARD, borderRadius: BorderRadius.circular(12)),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('PENGELUARAN', style: TextStyle(color: RED, fontWeight: FontWeight.bold, fontSize: 12)),
+              const Text('PENGELUARAN RT', style: TextStyle(color: RED, fontWeight: FontWeight.bold, fontSize: 12)),
               const SizedBox(height: 10),
-              _row('RT', keluarRTPeriode),
-              _row('Toko', keluarKasirPeriode),
-              const Divider(color: Colors.white24, height: 20),
-              _row('Total Keluar', totalKeluar, bold: true, color: RED),
+              _row('Total Keluar', keluarRTPeriode, bold: true, color: RED),
             ])),
           const SizedBox(height: 12),
 
