@@ -120,7 +120,13 @@ class PeriodeFilter {
   int? tahunDipilih;
   DateTime? customMulai, customAkhir;
 
-  PeriodeFilter({this.type = FilterType.bulanIni});
+  PeriodeFilter({
+    this.type = FilterType.bulanIni,
+    this.bulanDipilih,
+    this.tahunDipilih,
+    this.customMulai,
+    this.customAkhir,
+  });
 
   DateTime get mulai {
     final now = DateTime.now();
@@ -252,7 +258,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     });
     for (final g in gaji) {
       final t = DateTime.parse(g.tanggal);
-      if (t.isBefore(filter.mulai) || t.isAfter(filter.akhir)) return;
+      if (t.isBefore(filter.mulai) || t.isAfter(filter.akhir)) continue;
       total += g.nominal;
     }
     return total;
@@ -339,7 +345,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (syncing) return;
     setState(() { syncing = true; offline = false; });
 
-    // 1. Push pending
     final pn = peng.where((t) => !t.synced).toList();
     final gn = gaji.where((t) => !t.synced).toList();
     final pd = List<int>.from(pengDel);
@@ -378,7 +383,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     gajiDel = sisaG;
     await _saveAll();
 
-    // 2. Cek hantu
     if (mounted) setState(() => progress = 'Cek hantu...');
     final rh = await apiGet({'action': 'cek-hantu', 'hari': '7'});
     int hantuDihapus = 0;
@@ -450,7 +454,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<void> _pullAll({bool initial = false}) async {
     setState(() { syncing = true; progress = initial ? 'Tarik data awal...' : 'Tarik dari Sheets...'; });
 
-    // Push pending dulu
     if (!initial) {
       final pn = peng.where((t) => !t.synced).toList();
       final gn = gaji.where((t) => !t.synced).toList();
@@ -497,7 +500,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       tambahGJ++;
     }
 
-    // Update cache
     final c = (r['cache'] as Map);
     c.forEach((k, v) {
       final vm = v as Map;
@@ -756,7 +758,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           ]),
           const SizedBox(height: 4),
 
-          // Card SISA
           GestureDetector(
             onTap: _openDetail,
             child: Container(
@@ -806,7 +807,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           ),
           const SizedBox(height: 12),
 
-          // Tombol tambah
           Row(children: [
             Expanded(child: ElevatedButton.icon(
               style: ElevatedButton.styleFrom(backgroundColor: RED, padding: const EdgeInsets.symmetric(vertical: 14)),
@@ -881,13 +881,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Future<void> _showUrlDialog() async {
-    final p = await SharedPreferences.getInstance();
-    final ctrl = TextEditingController(text: SCRIPT_URL);
     if (!mounted) return;
     await showDialog(context: context, builder: (c) => AlertDialog(
       title: const Text('URL Apps Script'),
-      content: TextField(controller: ctrl, maxLines: 3,
-        decoration: const InputDecoration(hintText: 'https://...')),
+      content: SingleChildScrollView(child: Text(SCRIPT_URL,
+        style: const TextStyle(fontSize: 11))),
       actions: [
         TextButton(onPressed: () => Navigator.pop(c), child: const Text('TUTUP')),
       ]));
@@ -910,7 +908,6 @@ class DetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Hitung pemasukan periode
     int omsetToko = 0, lainLain = 0, gajiPeriode = 0;
     cache.forEach((tgl, v) {
       final t = DateTime.parse(tgl);
@@ -925,7 +922,6 @@ class DetailPage extends StatelessWidget {
     }
     final totalMasuk = omsetToko + lainLain + gajiPeriode;
 
-    // Pengeluaran per kategori
     final perKat = <String, int>{};
     int totalKeluar = 0;
     for (final p in peng) {
@@ -945,7 +941,6 @@ class DetailPage extends StatelessWidget {
           Text(filter.label, style: const TextStyle(fontSize: 15, color: ACCENT)),
           const SizedBox(height: 16),
 
-          // Pemasukan
           Container(padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(color: CARD, borderRadius: BorderRadius.circular(12)),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -959,7 +954,6 @@ class DetailPage extends StatelessWidget {
             ])),
           const SizedBox(height: 12),
 
-          // Pengeluaran
           Container(padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(color: CARD, borderRadius: BorderRadius.circular(12)),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -974,7 +968,6 @@ class DetailPage extends StatelessWidget {
             ])),
           const SizedBox(height: 12),
 
-          // SISA
           Container(padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: (cukup ? GREEN : RED).withOpacity(0.1),
@@ -1193,7 +1186,7 @@ class _SaldoAwalPageState extends State<SaldoAwalPage> {
     _ctrl = TextEditingController(text: (widget.saldoAwal[_tahun] ?? 0).toString());
   }
 
-  Future<void> _pilihTahun(int th) async {
+  void _pilihTahun(int th) {
     setState(() {
       _tahun = th;
       _ctrl.text = (widget.saldoAwal[th] ?? 0).toString();
