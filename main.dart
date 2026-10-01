@@ -347,10 +347,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<Map<String, dynamic>> _delGaji(int id) =>
     apiGet({'action': 'delete-gaji', 'id': id.toString()});
 
+  // ===== SYNC (push pending + cache refresh + cek hantu) =====
   Future<void> _sync({bool silent = false}) async {
     if (syncing) return;
     setState(() { syncing = true; offline = false; });
     try {
+      // ===== 1. PUSH PENDING =====
       final pn = peng.where((t) => !t.synced).toList();
       final gn = gaji.where((t) => !t.synced).toList();
       final pd = List<int>.from(pengDel);
@@ -365,30 +367,47 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         ke++; if (mounted) setState(() => progress = 'Hapus RT $ke/$total');
         final r = await _delPeng(id);
         if (r['status'] != 'ok') sisaP.add(id);
-        await Future.delayed(const Duration(milliseconds: 60));
+        await Future.delayed(const Duration(milliseconds: 30));
       }
       for (final id in gd) {
         ke++; if (mounted) setState(() => progress = 'Hapus Gaji $ke/$total');
         final r = await _delGaji(id);
         if (r['status'] != 'ok') sisaG.add(id);
-        await Future.delayed(const Duration(milliseconds: 60));
+        await Future.delayed(const Duration(milliseconds: 30));
       }
       for (final t in pn) {
         ke++; if (mounted) setState(() => progress = 'Kirim RT $ke/$total');
         final r = await _upPeng(t);
         if (r['status'] == 'ok') t.synced = true; else gagal++;
-        await Future.delayed(const Duration(milliseconds: 60));
+        await Future.delayed(const Duration(milliseconds: 30));
       }
       for (final t in gn) {
         ke++; if (mounted) setState(() => progress = 'Kirim Gaji $ke/$total');
         final r = await _upGaji(t);
         if (r['status'] == 'ok') t.synced = true; else gagal++;
-        await Future.delayed(const Duration(milliseconds: 60));
+        await Future.delayed(const Duration(milliseconds: 30));
       }
       pengDel = sisaP;
       gajiDel = sisaG;
       await _saveAll();
 
+      // ===== 2. REFRESH CACHE PEMASUKAN (ringan) =====
+      if (mounted) setState(() => progress = 'Refresh pemasukan...');
+      final rc = await apiGet({'action': 'get-cache-pemasukan'});
+      if (rc['status'] == 'ok') {
+        final c = (rc['cache'] as Map);
+        cache = {};
+        c.forEach((k, v) {
+          final vm = v as Map;
+          cache[k.toString()] = {
+            'toko': (vm['toko'] as num?)?.toInt() ?? 0,
+            'lain': (vm['lain'] as num?)?.toInt() ?? 0,
+          };
+        });
+        await _saveAll();
+      }
+
+      // ===== 3. CEK HANTU =====
       if (mounted) setState(() => progress = 'Cek hantu...');
       final rh = await apiGet({'action': 'cek-hantu', 'hari': '7'});
       int hantuDihapus = 0;
@@ -459,6 +478,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
+  // ===== PULL ALL (Full Sync) =====
   Future<void> _pullAll({bool initial = false}) async {
     if (syncing && !initial) return;
     setState(() { syncing = true; progress = initial ? 'Tarik data awal...' : 'Tarik dari Sheets...'; });
@@ -509,6 +529,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       }
 
       final c = (r['cache'] as Map);
+      cache = {};
       c.forEach((k, v) {
         final vm = v as Map;
         cache[k.toString()] = {
@@ -808,7 +829,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           Row(children: [
             const Spacer(),
             GestureDetector(
-              onTap: syncing ? null : () => _pullAll(),
+              onTap: syncing ? null : () => _sync(),
               child: Container(
                 padding: const EdgeInsets.all(6),
                 child: syncing
@@ -1296,7 +1317,6 @@ class _SaldoAwalPageState extends State<SaldoAwalPage> {
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
     final tahunList = List.generate(11, (i) => 2025 + i);
 
     return Scaffold(
