@@ -206,15 +206,25 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (s == AppLifecycleState.resumed && !firstRun) _sync(silent: true);
   }
 
+  // ===== PARSE CACHE (bantu) =====
+  Map<String, Map<String, int>> _parseCache(Map raw) {
+    final result = <String, Map<String, int>>{};
+    raw.forEach((k, v) {
+      final vm = v as Map;
+      result[k.toString()] = {
+        'toko': (vm['toko'] as num?)?.toInt() ?? 0,
+        'lain': (vm['lain'] as num?)?.toInt() ?? 0,
+        'keluarKasir': (vm['keluarKasir'] as num?)?.toInt() ?? 0,
+      };
+    });
+    return result;
+  }
+
   Future<void> _init() async {
     await _reloadLocal();
     final p = await SharedPreferences.getInstance();
     final cj = p.getString('cache');
-    if (cj != null) {
-      final Map m = jsonDecode(cj);
-      cache = m.map((k, v) => MapEntry(k.toString(),
-        (v as Map).map((k2, v2) => MapEntry(k2.toString(), (v2 as num).toInt()))));
-    }
+    if (cj != null) cache = _parseCache(jsonDecode(cj));
     final sa = p.getString('saldoAwal');
     if (sa != null) {
       final Map m = jsonDecode(sa);
@@ -270,6 +280,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return total;
   }
 
+  // "Keluar" di home = pengeluaran RT saja (sesuai pilihan A)
   int get pengeluaranPeriode {
     int total = 0;
     for (final p in peng) {
@@ -280,9 +291,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return total;
   }
 
+  // SISA kumulatif = Saldo Awal + (toko+lain+gaji) - RT - pengeluaranKasir
   int get sisa {
     final thn = filter.akhir.year;
     final saldo = saldoAwal[thn] ?? 0;
+
     int masukKum = 0;
     cache.forEach((tgl, v) {
       final t = DateTime.parse(tgl);
@@ -294,13 +307,22 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (t.year != thn || t.isAfter(filter.akhir)) continue;
       masukKum += g.nominal;
     }
-    int keluarKum = 0;
+
+    int keluarRTKum = 0;
     for (final p in peng) {
       final t = DateTime.parse(p.tanggal);
       if (t.year != thn || t.isAfter(filter.akhir)) continue;
-      keluarKum += p.nominal;
+      keluarRTKum += p.nominal;
     }
-    return saldo + masukKum - keluarKum;
+
+    int keluarKasirKum = 0;
+    cache.forEach((tgl, v) {
+      final t = DateTime.parse(tgl);
+      if (t.year != thn || t.isAfter(filter.akhir)) return;
+      keluarKasirKum += (v['keluarKasir'] ?? 0);
+    });
+
+    return saldo + masukKum - keluarRTKum - keluarKasirKum;
   }
 
   int get belumSync =>
@@ -347,12 +369,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<Map<String, dynamic>> _delGaji(int id) =>
     apiGet({'action': 'delete-gaji', 'id': id.toString()});
 
-  // ===== SYNC (push pending + cache refresh + cek hantu) =====
   Future<void> _sync({bool silent = false}) async {
     if (syncing) return;
     setState(() { syncing = true; offline = false; });
     try {
-      // ===== 1. PUSH PENDING =====
+      // 1. Push pending
       final pn = peng.where((t) => !t.synced).toList();
       final gn = gaji.where((t) => !t.synced).toList();
       final pd = List<int>.from(pengDel);
@@ -391,23 +412,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       gajiDel = sisaG;
       await _saveAll();
 
-      // ===== 2. REFRESH CACHE PEMASUKAN (ringan) =====
-      if (mounted) setState(() => progress = 'Refresh pemasukan...');
+      // 2. Refresh cache pemasukan + pengeluaran kasir
+      if (mounted) setState(() => progress = 'Refresh cache...');
       final rc = await apiGet({'action': 'get-cache-pemasukan'});
       if (rc['status'] == 'ok') {
-        final c = (rc['cache'] as Map);
-        cache = {};
-        c.forEach((k, v) {
-          final vm = v as Map;
-          cache[k.toString()] = {
-            'toko': (vm['toko'] as num?)?.toInt() ?? 0,
-            'lain': (vm['lain'] as num?)?.toInt() ?? 0,
-          };
-        });
+        cache = _parseCache(rc['cache'] as Map);
         await _saveAll();
       }
 
-      // ===== 3. CEK HANTU =====
+      // 3. Cek hantu
       if (mounted) setState(() => progress = 'Cek hantu...');
       final rh = await apiGet({'action': 'cek-hantu', 'hari': '7'});
       int hantuDihapus = 0;
@@ -478,7 +491,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  // ===== PULL ALL (Full Sync) =====
   Future<void> _pullAll({bool initial = false}) async {
     if (syncing && !initial) return;
     setState(() { syncing = true; progress = initial ? 'Tarik data awal...' : 'Tarik dari Sheets...'; });
@@ -528,15 +540,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         tambahGJ++;
       }
 
-      final c = (r['cache'] as Map);
-      cache = {};
-      c.forEach((k, v) {
-        final vm = v as Map;
-        cache[k.toString()] = {
-          'toko': (vm['toko'] as num?)?.toInt() ?? 0,
-          'lain': (vm['lain'] as num?)?.toInt() ?? 0,
-        };
-      });
+      cache = _parseCache(r['cache'] as Map);
 
       await _saveAll();
       if (!mounted) return;
@@ -625,12 +629,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  // ===== FILTER BARU =====
+  // ===== FILTER =====
   List<int> _listTahun() {
     final set = <int>{};
-    for (int th = 2025; th <= 2035; th++) {
-      set.add(th);
-    }
+    for (int th = 2025; th <= 2035; th++) set.add(th);
     cache.forEach((tgl, _) {
       if (tgl.length >= 4) {
         final th = int.tryParse(tgl.substring(0, 4));
@@ -649,8 +651,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         if (th != null) set.add(th);
       }
     }
-    final l = set.toList()..sort((a, b) => b.compareTo(a));
-    return l;
+    return set.toList()..sort((a, b) => b.compareTo(a));
   }
 
   Future<void> _openFilter() async {
@@ -704,19 +705,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               ]),
             ),
             const Divider(color: Colors.white24, height: 1),
-
             if (bisaKembali) ...[
               ListTile(
                 dense: true,
                 leading: const Icon(Icons.replay, color: YELLOW, size: 20),
                 title: const Text('Kembali ke Bulan Ini',
                   style: TextStyle(color: YELLOW, fontWeight: FontWeight.bold)),
-                onTap: () => Navigator.pop(c,
-                  PeriodeFilter(type: FilterType.bulanIni)),
+                onTap: () => Navigator.pop(c, PeriodeFilter(type: FilterType.bulanIni)),
               ),
               const Divider(color: Colors.white24, height: 1),
             ],
-
             Flexible(child: SingleChildScrollView(
               child: Column(children: List.generate(12, (i) {
                 final bl = i + 1;
@@ -1028,15 +1026,21 @@ class DetailPage extends StatelessWidget {
     }
     final totalMasuk = omsetToko + lainLain + gajiPeriode;
 
-    final perKat = <String, int>{};
-    int totalKeluar = 0;
+    int keluarRTPeriode = 0;
     for (final p in peng) {
       final t = DateTime.parse(p.tanggal);
       if (t.isBefore(filter.mulai) || t.isAfter(filter.akhir)) continue;
-      perKat[p.kategori] = (perKat[p.kategori] ?? 0) + p.nominal;
-      totalKeluar += p.nominal;
+      keluarRTPeriode += p.nominal;
     }
 
+    int keluarKasirPeriode = 0;
+    cache.forEach((tgl, v) {
+      final t = DateTime.parse(tgl);
+      if (t.isBefore(filter.mulai) || t.isAfter(filter.akhir)) return;
+      keluarKasirPeriode += v['keluarKasir'] ?? 0;
+    });
+
+    final totalKeluar = keluarRTPeriode + keluarKasirPeriode;
     final cukup = sisa >= 0;
 
     return Scaffold(
@@ -1065,10 +1069,8 @@ class DetailPage extends StatelessWidget {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               const Text('PENGELUARAN', style: TextStyle(color: RED, fontWeight: FontWeight.bold, fontSize: 12)),
               const SizedBox(height: 10),
-              if (perKat.isEmpty)
-                const Text('Belum ada pengeluaran',
-                  style: TextStyle(color: Colors.grey, fontSize: 12))
-              else ...perKat.entries.map((e) => _row(e.key, e.value)),
+              _row('RT', keluarRTPeriode),
+              _row('Toko', keluarKasirPeriode),
               const Divider(color: Colors.white24, height: 20),
               _row('Total Keluar', totalKeluar, bold: true, color: RED),
             ])),
