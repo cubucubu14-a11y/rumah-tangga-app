@@ -57,6 +57,10 @@ String fmtTgl(String t) {
   return '${p[2]} ${b[int.parse(p[1]) - 1]} ${p[0]}';
 }
 
+const List<String> BLN_SHORT = [
+  'Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'
+];
+
 Future<Map<String, dynamic>> apiGet(Map<String, String> p) async {
   try {
     final uri = Uri.parse(SCRIPT_URL).replace(queryParameters: p);
@@ -112,18 +116,16 @@ class Gaji {
 }
 
 // ===== FILTER =====
-enum FilterType { bulanIni, bulan, tahun, custom }
+enum FilterType { bulanIni, bulan, custom }
 
 class PeriodeFilter {
   FilterType type;
   DateTime? bulanDipilih;
-  int? tahunDipilih;
   DateTime? customMulai, customAkhir;
 
   PeriodeFilter({
     this.type = FilterType.bulanIni,
     this.bulanDipilih,
-    this.tahunDipilih,
     this.customMulai,
     this.customAkhir,
   });
@@ -135,8 +137,6 @@ class PeriodeFilter {
         return DateTime(now.year, now.month, 1);
       case FilterType.bulan:
         return DateTime(bulanDipilih!.year, bulanDipilih!.month, 1);
-      case FilterType.tahun:
-        return DateTime(tahunDipilih!, 1, 1);
       case FilterType.custom:
         return customMulai!;
     }
@@ -149,23 +149,18 @@ class PeriodeFilter {
         return DateTime(now.year, now.month + 1, 0);
       case FilterType.bulan:
         return DateTime(bulanDipilih!.year, bulanDipilih!.month + 1, 0);
-      case FilterType.tahun:
-        return DateTime(tahunDipilih!, 12, 31);
       case FilterType.custom:
         return customAkhir!;
     }
   }
 
   String get label {
-    final b = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
     switch (type) {
       case FilterType.bulanIni:
         final n = DateTime.now();
-        return 'Bulan Ini • ${b[n.month - 1]} ${n.year}';
+        return 'Bulan Ini • ${BLN_SHORT[n.month - 1]} ${n.year}';
       case FilterType.bulan:
-        return '${b[bulanDipilih!.month - 1]} ${bulanDipilih!.year}';
-      case FilterType.tahun:
-        return 'Tahun $tahunDipilih';
+        return '${BLN_SHORT[bulanDipilih!.month - 1]} ${bulanDipilih!.year}';
       case FilterType.custom:
         return '${fmtTgl(tglStr(customMulai!))} - ${fmtTgl(tglStr(customAkhir!))}';
     }
@@ -212,15 +207,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Future<void> _init() async {
+    await _reloadLocal();
     final p = await SharedPreferences.getInstance();
-    final pj = p.getString('pengRT');
-    if (pj != null) peng = (jsonDecode(pj) as List).map((e) => PengRT.fromJson(e)).toList();
-    final gj = p.getString('gaji');
-    if (gj != null) gaji = (jsonDecode(gj) as List).map((e) => Gaji.fromJson(e)).toList();
-    final pd = p.getString('pengRTDel');
-    if (pd != null) pengDel = (jsonDecode(pd) as List).map((e) => (e as num).toInt()).toList();
-    final gd = p.getString('gajiDel');
-    if (gd != null) gajiDel = (jsonDecode(gd) as List).map((e) => (e as num).toInt()).toList();
     final cj = p.getString('cache');
     if (cj != null) {
       final Map m = jsonDecode(cj);
@@ -232,10 +220,28 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       final Map m = jsonDecode(sa);
       saldoAwal = m.map((k, v) => MapEntry(int.parse(k.toString()), (v as num).toInt()));
     }
+    firstRun = (p.getString('pengRT') == null &&
+                p.getString('gaji') == null &&
+                p.getString('cache') == null);
+    if (mounted) setState(() {});
+    if (firstRun) {
+      await _pullAll(initial: true);
+    } else {
+      _sync(silent: true);
+    }
+  }
 
-    firstRun = (pj == null && gj == null && cj == null);
-    setState(() {});
-    if (firstRun) await _pullAll(initial: true);
+  Future<void> _reloadLocal() async {
+    final p = await SharedPreferences.getInstance();
+    final pj = p.getString('pengRT');
+    if (pj != null) peng = (jsonDecode(pj) as List).map((e) => PengRT.fromJson(e)).toList();
+    final gj = p.getString('gaji');
+    if (gj != null) gaji = (jsonDecode(gj) as List).map((e) => Gaji.fromJson(e)).toList();
+    final pd = p.getString('pengRTDel');
+    if (pd != null) pengDel = (jsonDecode(pd) as List).map((e) => (e as num).toInt()).toList();
+    final gd = p.getString('gajiDel');
+    if (gd != null) gajiDel = (jsonDecode(gd) as List).map((e) => (e as num).toInt()).toList();
+    if (mounted) setState(() {});
   }
 
   Future<void> _saveAll() async {
@@ -344,179 +350,184 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<void> _sync({bool silent = false}) async {
     if (syncing) return;
     setState(() { syncing = true; offline = false; });
+    try {
+      final pn = peng.where((t) => !t.synced).toList();
+      final gn = gaji.where((t) => !t.synced).toList();
+      final pd = List<int>.from(pengDel);
+      final gd = List<int>.from(gajiDel);
 
-    final pn = peng.where((t) => !t.synced).toList();
-    final gn = gaji.where((t) => !t.synced).toList();
-    final pd = List<int>.from(pengDel);
-    final gd = List<int>.from(gajiDel);
+      final total = pn.length + gn.length + pd.length + gd.length;
+      int ke = 0, gagal = 0;
+      final sisaP = <int>[];
+      final sisaG = <int>[];
 
-    final total = pn.length + gn.length + pd.length + gd.length;
-    int ke = 0, gagal = 0;
-    final sisaP = <int>[];
-    final sisaG = <int>[];
+      for (final id in pd) {
+        ke++; if (mounted) setState(() => progress = 'Hapus RT $ke/$total');
+        final r = await _delPeng(id);
+        if (r['status'] != 'ok') sisaP.add(id);
+        await Future.delayed(const Duration(milliseconds: 60));
+      }
+      for (final id in gd) {
+        ke++; if (mounted) setState(() => progress = 'Hapus Gaji $ke/$total');
+        final r = await _delGaji(id);
+        if (r['status'] != 'ok') sisaG.add(id);
+        await Future.delayed(const Duration(milliseconds: 60));
+      }
+      for (final t in pn) {
+        ke++; if (mounted) setState(() => progress = 'Kirim RT $ke/$total');
+        final r = await _upPeng(t);
+        if (r['status'] == 'ok') t.synced = true; else gagal++;
+        await Future.delayed(const Duration(milliseconds: 60));
+      }
+      for (final t in gn) {
+        ke++; if (mounted) setState(() => progress = 'Kirim Gaji $ke/$total');
+        final r = await _upGaji(t);
+        if (r['status'] == 'ok') t.synced = true; else gagal++;
+        await Future.delayed(const Duration(milliseconds: 60));
+      }
+      pengDel = sisaP;
+      gajiDel = sisaG;
+      await _saveAll();
 
-    for (final id in pd) {
-      ke++; if (mounted) setState(() => progress = 'Hapus RT $ke/$total');
-      final r = await _delPeng(id);
-      if (r['status'] != 'ok') sisaP.add(id);
-      await Future.delayed(const Duration(milliseconds: 60));
-    }
-    for (final id in gd) {
-      ke++; if (mounted) setState(() => progress = 'Hapus Gaji $ke/$total');
-      final r = await _delGaji(id);
-      if (r['status'] != 'ok') sisaG.add(id);
-      await Future.delayed(const Duration(milliseconds: 60));
-    }
-    for (final t in pn) {
-      ke++; if (mounted) setState(() => progress = 'Kirim RT $ke/$total');
-      final r = await _upPeng(t);
-      if (r['status'] == 'ok') t.synced = true; else gagal++;
-      await Future.delayed(const Duration(milliseconds: 60));
-    }
-    for (final t in gn) {
-      ke++; if (mounted) setState(() => progress = 'Kirim Gaji $ke/$total');
-      final r = await _upGaji(t);
-      if (r['status'] == 'ok') t.synced = true; else gagal++;
-      await Future.delayed(const Duration(milliseconds: 60));
-    }
-    pengDel = sisaP;
-    gajiDel = sisaG;
-    await _saveAll();
+      if (mounted) setState(() => progress = 'Cek hantu...');
+      final rh = await apiGet({'action': 'cek-hantu', 'hari': '7'});
+      int hantuDihapus = 0;
+      if (rh['status'] == 'ok') {
+        final lokalRT = peng.map((p) => p.id).toSet();
+        final lokalGJ = gaji.map((g) => g.id).toSet();
+        final sheetRT = (rh['idsRT'] as List).cast<Map>();
+        final sheetGJ = (rh['idsGJ'] as List).cast<Map>();
+        final hRT = sheetRT.where((m) => !lokalRT.contains(int.tryParse(m['id'].toString()))).toList();
+        final hGJ = sheetGJ.where((m) => !lokalGJ.contains(int.tryParse(m['id'].toString()))).toList();
 
-    if (mounted) setState(() => progress = 'Cek hantu...');
-    final rh = await apiGet({'action': 'cek-hantu', 'hari': '7'});
-    int hantuDihapus = 0;
-    if (rh['status'] == 'ok') {
-      final lokalRT = peng.map((p) => p.id).toSet();
-      final lokalGJ = gaji.map((g) => g.id).toSet();
-      final sheetRT = (rh['idsRT'] as List).cast<Map>();
-      final sheetGJ = (rh['idsGJ'] as List).cast<Map>();
-      final hRT = sheetRT.where((m) => !lokalRT.contains(int.tryParse(m['id'].toString()))).toList();
-      final hGJ = sheetGJ.where((m) => !lokalGJ.contains(int.tryParse(m['id'].toString()))).toList();
-
-      if ((hRT.isNotEmpty || hGJ.isNotEmpty) && mounted) {
-        final ok = await showDialog<bool>(context: context, builder: (c) => AlertDialog(
-          title: const Text('⚠ Ada Data Hantu'),
-          content: SingleChildScrollView(child: Column(
-            mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Data di Sheets yang tidak ada di HP (7 hari terakhir):'),
-              const SizedBox(height: 8),
-              if (hRT.isNotEmpty) ...[
-                const Text('Pengeluaran RT:', style: TextStyle(fontWeight: FontWeight.bold, color: RED)),
-                ...hRT.take(10).map((m) => Text('  • ${m['tanggal']} - Rp ${rp((m['nominal'] as num).toInt())}',
-                  style: const TextStyle(fontSize: 12))),
-                if (hRT.length > 10) Text('  ... +${hRT.length - 10} lagi'),
-              ],
-              if (hGJ.isNotEmpty) ...[
+        if ((hRT.isNotEmpty || hGJ.isNotEmpty) && mounted) {
+          final ok = await showDialog<bool>(context: context, builder: (c) => AlertDialog(
+            title: const Text('⚠ Ada Data Hantu'),
+            content: SingleChildScrollView(child: Column(
+              mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Data di Sheets yang tidak ada di HP (7 hari terakhir):'),
                 const SizedBox(height: 8),
-                const Text('Gaji:', style: TextStyle(fontWeight: FontWeight.bold, color: GREEN)),
-                ...hGJ.take(10).map((m) => Text('  • ${m['tanggal']} - Rp ${rp((m['nominal'] as num).toInt())}',
-                  style: const TextStyle(fontSize: 12))),
-              ],
-              const SizedBox(height: 12),
-              const Text('Hapus data ini dari Sheets?'),
-            ])),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('BATAL')),
-            ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: RED),
-              onPressed: () => Navigator.pop(c, true),
-              child: const Text('HAPUS', style: TextStyle(color: Colors.black))),
-          ]));
-        if (ok == true) {
-          for (final m in hRT) {
-            final id = int.tryParse(m['id'].toString());
-            if (id == null) continue;
-            await _delPeng(id);
-            hantuDihapus++;
-          }
-          for (final m in hGJ) {
-            final id = int.tryParse(m['id'].toString());
-            if (id == null) continue;
-            await _delGaji(id);
-            hantuDihapus++;
+                if (hRT.isNotEmpty) ...[
+                  const Text('Pengeluaran RT:', style: TextStyle(fontWeight: FontWeight.bold, color: RED)),
+                  ...hRT.take(10).map((m) => Text('  • ${m['tanggal']} - Rp ${rp((m['nominal'] as num).toInt())}',
+                    style: const TextStyle(fontSize: 12))),
+                  if (hRT.length > 10) Text('  ... +${hRT.length - 10} lagi'),
+                ],
+                if (hGJ.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  const Text('Gaji:', style: TextStyle(fontWeight: FontWeight.bold, color: GREEN)),
+                  ...hGJ.take(10).map((m) => Text('  • ${m['tanggal']} - Rp ${rp((m['nominal'] as num).toInt())}',
+                    style: const TextStyle(fontSize: 12))),
+                ],
+                const SizedBox(height: 12),
+                const Text('Hapus data ini dari Sheets?'),
+              ])),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('BATAL')),
+              ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: RED),
+                onPressed: () => Navigator.pop(c, true),
+                child: const Text('HAPUS', style: TextStyle(color: Colors.black))),
+            ]));
+          if (ok == true) {
+            for (final m in hRT) {
+              final id = int.tryParse(m['id'].toString());
+              if (id == null) continue;
+              await _delPeng(id);
+              hantuDihapus++;
+            }
+            for (final m in hGJ) {
+              final id = int.tryParse(m['id'].toString());
+              if (id == null) continue;
+              await _delGaji(id);
+              hantuDihapus++;
+            }
           }
         }
       }
-    }
 
-    if (mounted) {
-      setState(() { syncing = false; progress = ''; });
-      if (!silent) {
+      if (mounted && !silent) {
         String msg = '✓ Sync selesai';
         if (hantuDihapus > 0) msg += ' ($hantuDihapus hantu dihapus)';
         if (gagal > 0) msg = '$gagal data gagal terkirim';
         _snack(msg, ok: gagal == 0, err: gagal > 0);
       }
+    } catch (e) {
+      if (mounted) _snack('Error: $e', err: true);
+    } finally {
+      if (mounted) setState(() { syncing = false; progress = ''; });
     }
   }
 
   Future<void> _pullAll({bool initial = false}) async {
+    if (syncing && !initial) return;
     setState(() { syncing = true; progress = initial ? 'Tarik data awal...' : 'Tarik dari Sheets...'; });
+    try {
+      if (!initial) {
+        final pn = peng.where((t) => !t.synced).toList();
+        final gn = gaji.where((t) => !t.synced).toList();
+        for (final t in pn) { await _upPeng(t); t.synced = true; }
+        for (final t in gn) { await _upGaji(t); t.synced = true; }
+        for (final id in pengDel) { await _delPeng(id); }
+        for (final id in gajiDel) { await _delGaji(id); }
+        pengDel.clear(); gajiDel.clear();
+        await _saveAll();
+      }
 
-    if (!initial) {
-      final pn = peng.where((t) => !t.synced).toList();
-      final gn = gaji.where((t) => !t.synced).toList();
-      for (final t in pn) { await _upPeng(t); t.synced = true; }
-      for (final t in gn) { await _upGaji(t); t.synced = true; }
-      for (final id in pengDel) { await _delPeng(id); }
-      for (final id in gajiDel) { await _delGaji(id); }
-      pengDel.clear(); gajiDel.clear();
+      setState(() => progress = 'Tarik dari Sheets...');
+      final r = await apiGet({'action': 'pull-all-data'});
+      if (!mounted) return;
+      if (r['status'] != 'ok') {
+        _snack('Gagal tarik: ${r['message']}', err: true);
+        return;
+      }
+
+      final lokalRT = peng.map((p) => p.id).toSet();
+      int tambahRT = 0;
+      for (final m in (r['pengRT'] as List).cast<Map>()) {
+        final id = int.tryParse(m['id'].toString()) ?? 0;
+        if (id == 0 || lokalRT.contains(id)) continue;
+        peng.add(PengRT(
+          id: id, tanggal: m['tanggal'].toString(), jam: m['jam'] ?? '',
+          kategori: m['kategori'] ?? 'Lainnya', keterangan: m['keterangan'] ?? '',
+          nominal: (m['nominal'] as num).toInt(), synced: true,
+        ));
+        tambahRT++;
+      }
+
+      final lokalGJ = gaji.map((g) => g.id).toSet();
+      int tambahGJ = 0;
+      for (final m in (r['gaji'] as List).cast<Map>()) {
+        final id = int.tryParse(m['id'].toString()) ?? 0;
+        if (id == 0 || lokalGJ.contains(id)) continue;
+        gaji.add(Gaji(
+          id: id, tanggal: m['tanggal'].toString(), jam: m['jam'] ?? '',
+          keterangan: m['keterangan'] ?? '',
+          nominal: (m['nominal'] as num).toInt(), synced: true,
+        ));
+        tambahGJ++;
+      }
+
+      final c = (r['cache'] as Map);
+      c.forEach((k, v) {
+        final vm = v as Map;
+        cache[k.toString()] = {
+          'toko': (vm['toko'] as num?)?.toInt() ?? 0,
+          'lain': (vm['lain'] as num?)?.toInt() ?? 0,
+        };
+      });
+
       await _saveAll();
-    }
-
-    setState(() => progress = 'Tarik dari Sheets...');
-    final r = await apiGet({'action': 'pull-all-data'});
-    if (!mounted) return;
-    if (r['status'] != 'ok') {
-      setState(() { syncing = false; progress = ''; offline = true; });
-      _snack('Gagal tarik: ${r['message']}', err: true);
-      return;
-    }
-
-    final lokalRT = peng.map((p) => p.id).toSet();
-    int tambahRT = 0;
-    for (final m in (r['pengRT'] as List).cast<Map>()) {
-      final id = int.tryParse(m['id'].toString()) ?? 0;
-      if (id == 0 || lokalRT.contains(id)) continue;
-      peng.add(PengRT(
-        id: id, tanggal: m['tanggal'].toString(), jam: m['jam'] ?? '',
-        kategori: m['kategori'] ?? 'Lainnya', keterangan: m['keterangan'] ?? '',
-        nominal: (m['nominal'] as num).toInt(), synced: true,
-      ));
-      tambahRT++;
-    }
-
-    final lokalGJ = gaji.map((g) => g.id).toSet();
-    int tambahGJ = 0;
-    for (final m in (r['gaji'] as List).cast<Map>()) {
-      final id = int.tryParse(m['id'].toString()) ?? 0;
-      if (id == 0 || lokalGJ.contains(id)) continue;
-      gaji.add(Gaji(
-        id: id, tanggal: m['tanggal'].toString(), jam: m['jam'] ?? '',
-        keterangan: m['keterangan'] ?? '',
-        nominal: (m['nominal'] as num).toInt(), synced: true,
-      ));
-      tambahGJ++;
-    }
-
-    final c = (r['cache'] as Map);
-    c.forEach((k, v) {
-      final vm = v as Map;
-      cache[k.toString()] = {
-        'toko': (vm['toko'] as num?)?.toInt() ?? 0,
-        'lain': (vm['lain'] as num?)?.toInt() ?? 0,
-      };
-    });
-
-    await _saveAll();
-    if (!mounted) return;
-    setState(() { syncing = false; progress = ''; offline = false; });
-
-    if (initial) {
-      _snack('✓ Data awal ditarik: $tambahRT RT, $tambahGJ Gaji', ok: true);
-    } else {
-      _snack('✓ Sync lengkap: +$tambahRT RT, +$tambahGJ Gaji', ok: true);
+      if (!mounted) return;
+      if (initial) {
+        _snack('✓ Data awal ditarik: $tambahRT RT, $tambahGJ Gaji', ok: true);
+      } else {
+        _snack('✓ Sync lengkap: +$tambahRT RT, +$tambahGJ Gaji', ok: true);
+      }
+    } catch (e) {
+      if (mounted) _snack('Error: $e', err: true);
+    } finally {
+      if (mounted) setState(() { syncing = false; progress = ''; offline = false; });
     }
   }
 
@@ -531,19 +542,28 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<void> _tambahPeng() async {
     final r = await Navigator.push<bool>(context,
       MaterialPageRoute(builder: (_) => const TambahPengPage()));
-    if (r == true) { setState(() {}); _sync(silent: true); }
+    if (r == true) {
+      await _reloadLocal();
+      _sync(silent: true);
+    }
   }
 
   Future<void> _tambahGaji() async {
     final r = await Navigator.push<bool>(context,
       MaterialPageRoute(builder: (_) => const TambahGajiPage()));
-    if (r == true) { setState(() {}); _sync(silent: true); }
+    if (r == true) {
+      await _reloadLocal();
+      _sync(silent: true);
+    }
   }
 
   Future<void> _editPeng(PengRT t) async {
     final r = await Navigator.push<bool>(context,
       MaterialPageRoute(builder: (_) => TambahPengPage(existing: t)));
-    if (r == true) { setState(() {}); _sync(silent: true); }
+    if (r == true) {
+      await _reloadLocal();
+      _sync(silent: true);
+    }
   }
 
   Future<void> _hapusPeng(PengRT t) async {
@@ -584,78 +604,140 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
+  // ===== FILTER BARU =====
+  List<int> _listTahun() {
+    final set = <int>{DateTime.now().year};
+    cache.forEach((tgl, _) {
+      if (tgl.length >= 4) {
+        final th = int.tryParse(tgl.substring(0, 4));
+        if (th != null) set.add(th);
+      }
+    });
+    for (final p in peng) {
+      if (p.tanggal.length >= 4) {
+        final th = int.tryParse(p.tanggal.substring(0, 4));
+        if (th != null) set.add(th);
+      }
+    }
+    for (final g in gaji) {
+      if (g.tanggal.length >= 4) {
+        final th = int.tryParse(g.tanggal.substring(0, 4));
+        if (th != null) set.add(th);
+      }
+    }
+    final l = set.toList()..sort((a, b) => b.compareTo(a));
+    return l;
+  }
+
   Future<void> _openFilter() async {
-    final r = await showModalBottomSheet<PeriodeFilter>(
-      context: context, backgroundColor: CARD,
-      builder: (c) => SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: [
-        ListTile(
-          leading: const Icon(Icons.today, color: ACCENT),
-          title: const Text('Bulan Ini'),
-          onTap: () => Navigator.pop(c, PeriodeFilter(type: FilterType.bulanIni)),
-        ),
-        ListTile(
-          leading: const Icon(Icons.calendar_month, color: ACCENT),
-          title: const Text('Pilih Bulan...'),
-          onTap: () async {
-            Navigator.pop(c);
-            await _pilihBulan();
-          },
-        ),
-        ListTile(
-          leading: const Icon(Icons.calendar_today, color: ACCENT),
-          title: const Text('Pilih Tahun...'),
-          onTap: () async {
-            Navigator.pop(c);
-            await _pilihTahun();
-          },
-        ),
-        ListTile(
-          leading: const Icon(Icons.date_range, color: ACCENT),
-          title: const Text('Custom...'),
-          onTap: () async {
-            Navigator.pop(c);
-            await _pilihCustom();
-          },
-        ),
-      ])),
-    );
-    if (r != null) setState(() => filter = r);
-  }
+    final tahunList = _listTahun();
+    int tahunAktif = filter.type == FilterType.bulan && filter.bulanDipilih != null
+        ? filter.bulanDipilih!.year
+        : (filter.type == FilterType.bulanIni
+            ? DateTime.now().year
+            : filter.akhir.year);
 
-  Future<void> _pilihBulan() async {
-    final now = DateTime.now();
-    final r = await showDatePicker(
+    int? bulanAktif;
+    if (filter.type == FilterType.bulan && filter.bulanDipilih != null) {
+      bulanAktif = filter.bulanDipilih!.month;
+    } else if (filter.type == FilterType.bulanIni) {
+      bulanAktif = DateTime.now().month;
+    }
+
+    final bisaKembali = !(filter.type == FilterType.bulanIni);
+
+    final r = await showModalBottomSheet<PeriodeFilter?>(
       context: context,
-      initialDate: now,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2100),
-      helpText: 'PILIH BULAN',
-      initialDatePickerMode: DatePickerMode.year,
-      builder: (c, ch) => Theme(data: ThemeData.dark().copyWith(
-        colorScheme: const ColorScheme.dark(primary: ACCENT, onPrimary: Colors.black,
-          surface: BG, onSurface: Colors.white)), child: ch!),
-    );
-    if (r == null) return;
-    setState(() => filter = PeriodeFilter(
-      type: FilterType.bulan,
-      bulanDipilih: DateTime(r.year, r.month, 1),
-    ));
-  }
+      backgroundColor: CARD,
+      isScrollControlled: true,
+      builder: (c) => StatefulBuilder(
+        builder: (c, setB) => SafeArea(child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: MediaQuery.of(c).size.height * 0.8),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+              child: Row(children: [
+                const Text('Pilih Periode',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: CARD2, borderRadius: BorderRadius.circular(8)),
+                  child: DropdownButton<int>(
+                    value: tahunAktif,
+                    underline: const SizedBox(),
+                    dropdownColor: CARD2,
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                    icon: const Icon(Icons.arrow_drop_down, color: ACCENT),
+                    items: tahunList.map((th) => DropdownMenuItem(
+                      value: th, child: Text('$th'))).toList(),
+                    onChanged: (v) {
+                      if (v != null) setB(() { tahunAktif = v; bulanAktif = null; });
+                    },
+                  ),
+                ),
+              ]),
+            ),
+            const Divider(color: Colors.white24, height: 1),
 
-  Future<void> _pilihTahun() async {
-    final now = DateTime.now();
-    final r = await showDialog<int>(context: context, builder: (c) => SimpleDialog(
-      title: const Text('Pilih Tahun'),
-      children: List.generate(10, (i) {
-        final th = now.year - 5 + i;
-        return SimpleDialogOption(
-          onPressed: () => Navigator.pop(c, th),
-          child: Text('$th'),
-        );
-      }),
-    ));
-    if (r == null) return;
-    setState(() => filter = PeriodeFilter(type: FilterType.tahun, tahunDipilih: r));
+            if (bisaKembali) ...[
+              ListTile(
+                dense: true,
+                leading: const Icon(Icons.replay, color: YELLOW, size: 20),
+                title: const Text('Kembali ke Bulan Ini',
+                  style: TextStyle(color: YELLOW, fontWeight: FontWeight.bold)),
+                onTap: () => Navigator.pop(c,
+                  PeriodeFilter(type: FilterType.bulanIni)),
+              ),
+              const Divider(color: Colors.white24, height: 1),
+            ],
+
+            Flexible(child: SingleChildScrollView(
+              child: Column(children: List.generate(12, (i) {
+                final bl = i + 1;
+                final aktif = bulanAktif == bl && tahunAktif ==
+                    (filter.bulanDipilih?.year ?? DateTime.now().year);
+                final isBulanIni = (tahunAktif == DateTime.now().year &&
+                                    bl == DateTime.now().month);
+                return ListTile(
+                  dense: true,
+                  leading: Icon(Icons.calendar_month,
+                    color: aktif ? GREEN : ACCENT, size: 20),
+                  title: Text('${BLN_SHORT[i]} $tahunAktif',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: aktif ? GREEN : Colors.white,
+                      fontWeight: aktif ? FontWeight.bold : FontWeight.normal)),
+                  trailing: aktif
+                    ? const Icon(Icons.check, color: GREEN, size: 18)
+                    : (isBulanIni
+                        ? const Text('bulan ini',
+                            style: TextStyle(fontSize: 10, color: Colors.white38))
+                        : null),
+                  onTap: () => Navigator.pop(c, PeriodeFilter(
+                    type: FilterType.bulan,
+                    bulanDipilih: DateTime(tahunAktif, bl, 1),
+                  )),
+                );
+              })),
+            )),
+            const Divider(color: Colors.white24, height: 1),
+            ListTile(
+              dense: true,
+              leading: const Icon(Icons.date_range, color: PURPLE, size: 20),
+              title: const Text('Custom...'),
+              onTap: () async {
+                Navigator.pop(c);
+                await _pilihCustom();
+              },
+            ),
+            const SizedBox(height: 8),
+          ]),
+        )),
+      ),
+    );
+    if (r != null && mounted) setState(() => filter = r);
   }
 
   Future<void> _pilihCustom() async {
