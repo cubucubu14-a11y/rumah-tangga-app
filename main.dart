@@ -79,7 +79,6 @@ void main() async {
 
   final p = await SharedPreferences.getInstance();
 
-  // Preload semua data lokal
   try {
     final pj = p.getString('pengRT');
     if (pj != null) {
@@ -318,7 +317,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void initState() {
     super.initState();
 
-    // Pakai data preload → frame pertama langsung ada isinya
     if (gInitPeng != null) peng = gInitPeng!;
     if (gInitGaji != null) gaji = gInitGaji!;
     if (gInitCache != null) cache = gInitCache!;
@@ -327,7 +325,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     WidgetsBinding.instance.addObserver(this);
 
-    // Auto-retry tiap 30 detik kalau offline
     _retryTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (offline && !syncing && mounted) _sync(silent: true);
     });
@@ -361,7 +358,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Future<void> _init() async {
-    // Reload local (hanya untuk deleted IDs, karena peng/gaji/cache/saldo sudah di-preload)
     await _reloadLocal();
     if (mounted) setState(() {});
     if (firstRun) {
@@ -394,7 +390,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     await p.setString('saldoAwal', jsonEncode(saldoAwal.map((k, v) => MapEntry(k.toString(), v))));
   }
 
-  // ===== HITUNGAN =====
   int get pemasukanPeriode {
     int total = 0;
     cache.forEach((tgl, v) {
@@ -486,7 +481,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return list;
   }
 
-  // ===== SYNC =====
   Future<Map<String, dynamic>> _upPeng(PengRT t) => apiGet({
     'action': 'upsert-pengeluaran-rt', 'id': t.id.toString(),
     'tanggal': t.tanggal, 'jam': t.jam, 'kategori': t.kategori,
@@ -502,7 +496,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<Map<String, dynamic>> _delGaji(int id) =>
       apiGet({'action': 'delete-gaji', 'id': id.toString()});
 
-  // Merge data baru dari Sheets ke lokal
   void _mergeRemote(Map<String, dynamic> r) {
     if (r['pengRT'] != null) {
       final lokalRT = peng.map((p) => p.id).toSet();
@@ -576,7 +569,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       gajiDel = sisaG;
       await _saveAll();
 
-      // AUTO-PULL dari Sheets (menggantikan get-cache + cek-hantu)
       if (mounted) setState(() => progress = 'Tarik data baru...');
       final rp = await apiGet({'action': 'pull-all-data'});
       if (rp['status'] == 'ok') {
@@ -668,7 +660,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (mounted) setState(() {});
   }
 
-  // ===== AKSI =====
   Future<void> _tambahPeng() async {
     final r = await Navigator.push<bool>(context,
         MaterialPageRoute(builder: (_) => const TambahPengPage()));
@@ -734,7 +725,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  // ===== FILTER =====
   List<int> _listTahun() {
     final set = <int>{};
     for (int th = 2025; th <= 2035; th++) set.add(th);
@@ -931,11 +921,22 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final cukup = sk >= 0;
 
     return Scaffold(
+      backgroundColor: BG,
       body: SafeArea(child: SingleChildScrollView(
         padding: const EdgeInsets.all(12),
         child: Column(children: [
           Row(children: [
-            const Spacer(),
+            Expanded(
+              child: Text(
+                'Keuangan Nyoya Putri',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: TEXT,
+                  fontWeight: FontWeight.bold,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
             GestureDetector(
               onTap: syncing ? null : () => _sync(),
               child: Container(
@@ -1070,8 +1071,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             color: t.synced ? GREEN : YELLOW, size: 14),
         const SizedBox(width: 8),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('${fmtTgl(t.tanggal)} • ${t.keterangan.isNotEmpty ? t.keterangan : t.kategori}',
-              style: TextStyle(color: TEXT, fontSize: 13)),
+          Text(
+            '${fmtTgl(t.tanggal)}${t.jam.isNotEmpty ? " ${t.jam}" : ""} • ${t.keterangan.isNotEmpty ? t.keterangan : t.kategori}',
+            style: TextStyle(color: TEXT, fontSize: 13),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 2,
+          ),
           Text('${t.kategori} • Rp ${rp(t.nominal)}',
               style: TextStyle(color: RED, fontSize: 12, fontWeight: FontWeight.bold)),
         ])),
@@ -1091,8 +1096,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             color: g.synced ? GREEN : YELLOW, size: 14),
         const SizedBox(width: 8),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('${fmtTgl(g.tanggal)} • ${g.keterangan.isNotEmpty ? g.keterangan : "Gaji"}',
-              style: TextStyle(color: TEXT, fontSize: 13)),
+          Text(
+            '${fmtTgl(g.tanggal)}${g.jam.isNotEmpty ? " ${g.jam}" : ""} • ${g.keterangan.isNotEmpty ? g.keterangan : "Gaji"}',
+            style: TextStyle(color: TEXT, fontSize: 13),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 2,
+          ),
           Text('Gaji • Rp ${rp(g.nominal)}',
               style: TextStyle(color: GREEN, fontSize: 12, fontWeight: FontWeight.bold)),
         ])),
@@ -1154,6 +1163,7 @@ class DetailPage extends StatelessWidget {
     final cukup = sisa >= 0;
 
     return Scaffold(
+      backgroundColor: BG,
       appBar: AppBar(title: const Text('Detail'), backgroundColor: BG),
       body: SafeArea(child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -1167,11 +1177,11 @@ class DetailPage extends StatelessWidget {
                 Text('PEMASUKAN',
                     style: TextStyle(color: GREEN, fontWeight: FontWeight.bold, fontSize: 12)),
                 const SizedBox(height: 10),
-                _row(context, 'Omset Toko', omsetToko),
-                _row(context, 'Gaji', gajiPeriode),
-                _row(context, 'Lain-lain', lainLain),
+                _row('Omset Toko', omsetToko),
+                _row('Gaji', gajiPeriode),
+                _row('Lain-lain', lainLain),
                 Divider(color: TEXT_DIM, height: 20),
-                _row(context, 'Total Masuk', totalMasuk, bold: true, color: GREEN),
+                _row('Total Masuk', totalMasuk, bold: true, color: GREEN),
               ])),
           const SizedBox(height: 12),
 
@@ -1181,10 +1191,10 @@ class DetailPage extends StatelessWidget {
                 Text('PENGELUARAN',
                     style: TextStyle(color: RED, fontWeight: FontWeight.bold, fontSize: 12)),
                 const SizedBox(height: 10),
-                _row(context, 'RT', keluarRTPeriode),
-                _row(context, 'Toko', keluarKasirPeriode),
+                _row('RT', keluarRTPeriode),
+                _row('Toko', keluarKasirPeriode),
                 Divider(color: TEXT_DIM, height: 20),
-                _row(context, 'Total Keluar', totalKeluar, bold: true, color: RED),
+                _row('Total Keluar', totalKeluar, bold: true, color: RED),
               ])),
           const SizedBox(height: 12),
 
@@ -1210,7 +1220,7 @@ class DetailPage extends StatelessWidget {
     );
   }
 
-  Widget _row(BuildContext context, String label, int val, {bool bold = false, Color? color}) {
+  Widget _row(String label, int val, {bool bold = false, Color? color}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
@@ -1284,6 +1294,7 @@ class _TambahPengPageState extends State<TambahPengPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: BG,
       appBar: AppBar(
           title: Text(widget.existing != null ? 'Edit Pengeluaran' : 'Tambah Pengeluaran'),
           backgroundColor: BG),
@@ -1357,6 +1368,7 @@ class _TambahGajiPageState extends State<TambahGajiPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: BG,
       appBar: AppBar(title: const Text('Tambah Gaji'), backgroundColor: BG),
       body: SafeArea(child: ListView(padding: const EdgeInsets.all(16), children: [
         ListTile(
@@ -1434,6 +1446,7 @@ class _SaldoAwalPageState extends State<SaldoAwalPage> {
     final tahunList = List.generate(11, (i) => 2025 + i);
 
     return Scaffold(
+      backgroundColor: BG,
       appBar: AppBar(title: const Text('Atur Saldo Awal'), backgroundColor: BG),
       body: SafeArea(child: ListView(padding: const EdgeInsets.all(16), children: [
         Text('Pilih Tahun:', style: TextStyle(fontSize: 13, color: TEXT_SUB)),
@@ -1554,6 +1567,7 @@ class _LihatSheetPageState extends State<LihatSheetPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: BG,
       appBar: AppBar(title: const Text('Lihat Sheet'), backgroundColor: BG,
           actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: loading ? null : _load)]),
       body: SafeArea(child: loading
