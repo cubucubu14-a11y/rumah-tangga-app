@@ -710,8 +710,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             final awalRT = stateSaldo['rt']!;
             final awalUsaha = stateSaldo['usaha']!;
 
-            int masukRT = 0, keluarRT = 0, masukUsaha = 0, keluarUsaha = 0;
-            
+            int masukRT = 0, keluarRT = 0, masukUsaha = 0, keluarUsaha = 0; 
+            int omsetToko = 0, bazar = 0;
             for (final g in gaji) {
               final t = DateTime.parse(g.tanggal);
               if (t.isBefore(sheetFilterMulai) || t.isAfter(sheetFilterAkhir)) continue;
@@ -723,12 +723,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               if (p.kategori == 'Bahan Baku') { keluarUsaha += p.nominal; } else { keluarRT += p.nominal; }
             }
             cache.forEach((tgl, v) {
-              final t = DateTime.parse(tgl);
-              if (t.isBefore(sheetFilterMulai) || t.isAfter(sheetFilterAkhir)) return;
-              masukUsaha += (v['toko'] ?? 0) + (v['lain'] ?? 0);
-              keluarUsaha += (v['keluarKasir'] ?? 0);
-            });
-
+  final t = DateTime.parse(tgl);
+  if (t.isBefore(sheetFilterMulai) || t.isAfter(sheetFilterAkhir)) return;
+  omsetToko += (v['toko'] ?? 0);
+  bazar += (v['lain'] ?? 0);
+  masukUsaha += (v['toko'] ?? 0) + (v['lain'] ?? 0);
+  keluarUsaha += (v['keluarKasir'] ?? 0);
+});
             Widget row(String label, String val, {bool bold = false, Color? color}) {
               return Padding(
                 padding: const EdgeInsets.symmetric(vertical: 6),
@@ -810,7 +811,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 const SizedBox(height: 16),
                 Text('Total Pemasukan', style: TextStyle(color: ACCENT, fontWeight: FontWeight.bold, fontSize: 13)),
                 row('Gaji', '+ Rp ${rp(masukRT)}', color: GREEN),
-                row('Omset & Bazar', '+ Rp ${rp(masukUsaha)}', color: GREEN),
+                row('Omset Toko', '+ Rp ${rp(omsetToko)}', color: GREEN),
+                row('Bazar / Lain-lain', '+ Rp ${rp(bazar)}', color: GREEN),
                 divider(),
                 row('Total Masuk', '+ Rp ${rp(totalMasuk)}', bold: true, color: GREEN),
                 const SizedBox(height: 12),
@@ -835,7 +837,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     Text(title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: TEXT)),
                     InkWell(
                       onTap: () async {
-                        final newFilter = await _openFilterSheet(sheetFilterMulai);
+                        final newFilter = await _openFilterSheet(sheetFilterMulai, context);
                         if (newFilter != null) setModalState(() { sheetFilterMulai = newFilter.mulai; sheetFilterAkhir = newFilter.akhir; sheetLabel = newFilter.label; });
                       },
                       child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: CARD2, borderRadius: BorderRadius.circular(8)), child: Row(children: [Text(sheetLabel, style: TextStyle(fontSize: 12, color: TEXT)), const SizedBox(width: 4), Icon(Icons.arrow_drop_down, size: 16, color: TEXT)])),
@@ -852,35 +854,90 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
-  Future<PeriodeFilter?> _openFilterSheet(DateTime currentStart) async {
-    final tahunList = _listTahun();
-    int tahunAktif = currentStart.year;
-    int bulanAktif = currentStart.month;
+  Future<PeriodeFilter?> _openFilterSheet(DateTime currentStart, BuildContext parentContext) async {
+  final tahunList = _listTahun();
+  int tahunAktif = currentStart.year;
+  int bulanAktif = currentStart.month;
 
-    return showModalBottomSheet<PeriodeFilter>(
-      context: context, backgroundColor: CARD,
-      builder: (c) => StatefulBuilder(
-        builder: (c, setB) => SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Container(padding: const EdgeInsets.all(16), child: Row(children: [
-            Text('Pilih Periode', style: TextStyle(fontWeight: FontWeight.bold, color: TEXT)),
-            const Spacer(),
-            DropdownButton<int>(value: tahunAktif, dropdownColor: CARD2, style: TextStyle(color: TEXT), items: tahunList.map((e) => DropdownMenuItem(value: e, child: Text('$e'))).toList(), onChanged: (v) => setB(() => tahunAktif = v!)),
-          ])),
-          Divider(color: TEXT_DIM, height: 1),
-          Flexible(child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: 12,
-            itemBuilder: (c, i) => ListTile(
-              title: Text('${BLN_SHORT[i]} $tahunAktif', style: TextStyle(color: TEXT)),
-              trailing: (i+1 == bulanAktif && tahunAktif == currentStart.year) ? Icon(Icons.check, color: GREEN) : null,
-              onTap: () => Navigator.pop(c, PeriodeFilter(type: FilterType.bulan, bulanDipilih: DateTime(tahunAktif, i+1, 1))),
+  return showModalBottomSheet<PeriodeFilter>(
+    context: parentContext, 
+    backgroundColor: CARD,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+    builder: (c) => StatefulBuilder(
+      builder: (c, setB) => SafeArea(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: MediaQuery.of(c).size.height * 0.8),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Container(
+              padding: const EdgeInsets.all(16), 
+              child: Row(children: [
+                Text('Pilih Periode', style: TextStyle(fontWeight: FontWeight.bold, color: TEXT)),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(color: CARD2, borderRadius: BorderRadius.circular(8)),
+                  child: DropdownButton<int>(
+                    value: tahunAktif, 
+                    dropdownColor: CARD2, 
+                    underline: const SizedBox(),
+                    style: TextStyle(color: TEXT), 
+                    icon: Icon(Icons.arrow_drop_down, color: ACCENT),
+                    items: tahunList.map((e) => DropdownMenuItem(value: e, child: Text('$e'))).toList(), 
+                    onChanged: (v) => setB(() => tahunAktif = v!),
+                  ),
+                ),
+              ]),
             ),
-          )),
-        ])),
+            Divider(color: TEXT_DIM, height: 1),
+            
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: 12,
+                itemBuilder: (c, i) => ListTile(
+                  title: Text('${BLN_SHORT[i]} $tahunAktif', style: TextStyle(color: TEXT)),
+                  trailing: (i+1 == bulanAktif && tahunAktif == currentStart.year) ? Icon(Icons.check, color: GREEN) : null,
+                  onTap: () => Navigator.pop(c, PeriodeFilter(type: FilterType.bulan, bulanDipilih: DateTime(tahunAktif, i+1, 1))),
+                ),
+              ),
+            ),
+            
+            Divider(color: TEXT_DIM, height: 1),
+            
+            ListTile(
+              leading: Icon(Icons.date_range, color: PURPLE, size: 20),
+              title: Text('Custom (Pilih Tanggal)', style: TextStyle(color: TEXT, fontWeight: FontWeight.bold)),
+              onTap: () async {
+                final r = await showDateRangePicker(
+                  context: c, 
+                  firstDate: DateTime(2025), 
+                  lastDate: DateTime(2035),
+                  helpText: 'PILIH RENTANG', saveText: 'PILIH', cancelText: 'BATAL',
+                  builder: (ctx, child) => Theme(
+                    data: ThemeData(
+                      brightness: _isLight ? Brightness.light : Brightness.dark, 
+                      colorScheme: ColorScheme.fromSeed(seedColor: ACCENT, brightness: _isLight ? Brightness.light : Brightness.dark)
+                    ), 
+                    child: child!,
+                  ),
+                );
+                if (r != null) {
+                  Navigator.pop(c, PeriodeFilter(
+                    type: FilterType.custom, 
+                    customMulai: r.start, 
+                    customAkhir: DateTime(r.end.year, r.end.month, r.end.day, 23, 59, 59)
+                  ));
+                }
+              },
+            ),
+            const SizedBox(height: 8),
+          ]),
+        ),
       ),
-    );
-  }
-
+    ),
+  );
+}
   // ===== BUILD HOME =====
   @override
   Widget build(BuildContext context) {
