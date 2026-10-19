@@ -988,12 +988,58 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   GestureDetector(onTap: _openFilter, child: Icon(Icons.arrow_drop_down, color: ACCENT, size: 26)),
                 ]),
                 const SizedBox(height: 12),
-                
-                Text('UANG SAAT INI', style: TextStyle(color: TEXT_SUB, fontSize: 12)),
-                Text('Rp ${rp(sGlobal)}', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: sGlobal >= 0 ? TEXT : RED)),
-                
-                const SizedBox(height: 16),
-                Divider(color: TEXT_DIM.withOpacity(0.5), height: 1),
+Row(
+  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  crossAxisAlignment: CrossAxisAlignment.end,
+  children: [
+    Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('UANG SAAT INI', style: TextStyle(color: TEXT_SUB, fontSize: 12)),
+          Text('Rp ${rp(sGlobal)}', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: sGlobal >= 0 ? TEXT : RED)),
+        ],
+      ),
+    ),
+    
+    // --- KOTAK PERSENTASE KONTRIBUSI USAHA ---
+    Builder(
+      builder: (context) {
+        int kontribusi = 0;
+        if (sRT < 0) kontribusi = sRT.abs(); // Jika RT minus, usaha nombok
+        
+        double persen = 0;
+        if (sUsaha > 0 && kontribusi > 0) {
+          persen = (kontribusi / sUsaha) * 100;
+          if (persen > 100) persen = 100; // Maksimal 100%
+        }
+
+        // Jika persentase 0 (RT tidak minus), kotak disembunyikan
+        if (persen == 0) return const SizedBox.shrink();
+
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: CARD2,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: ACCENT.withOpacity(0.3)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text('Beban Usaha', style: TextStyle(fontSize: 10, color: TEXT_SUB)),
+              Text('${persen.toStringAsFixed(1)}%', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: ACCENT)),
+              Text('untuk RT', style: TextStyle(fontSize: 9, color: TEXT_SUB)),
+            ],
+          ),
+        );
+      }
+    ),
+  ],
+),
+                  
+const SizedBox(height: 16),
+Divider(color: TEXT_DIM.withOpacity(0.5), height: 1),
                 const SizedBox(height: 12),
                 
                 Row(children: [
