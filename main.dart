@@ -6,7 +6,6 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
-// URL Kosong agar memaksa Setup di awal
 String SCRIPT_URL = ''; 
 
 // ===== WARNA =====
@@ -53,7 +52,6 @@ void applyTheme(bool light) {
   }
 }
 
-// ===== PRELOAD GLOBAL =====
 Map<String, Map<String, int>>? gInitCache;
 Map<int, int>? gInitSaldoAwal;
 List<PengRT>? gInitPeng;
@@ -78,11 +76,9 @@ void main() async {
   await initializeDateFormatting('id_ID', null);
   final p = await SharedPreferences.getInstance();
 
-  // Load URL
   final savedUrl = p.getString('script_url');
   if (savedUrl != null && savedUrl.isNotEmpty) SCRIPT_URL = savedUrl;
 
-  // Preload data
   try {
     final pj = p.getString('pengRT');
     if (pj != null) gInitPeng = (jsonDecode(pj) as List).map((e) => PengRT.fromJson(e)).toList();
@@ -143,7 +139,6 @@ class _RTAppState extends State<RTApp> {
   }
 }
 
-// ===== HELPERS =====
 String tglStr(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 String jamStr(DateTime d) => '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
 String jamPendek(String s) {
@@ -179,7 +174,6 @@ Future<Map<String, dynamic>> apiGet(Map<String, String> p) async {
   }
 }
 
-// ===== MODELS =====
 class PengRT {
   final int id;
   String tanggal, jam, kategori, keterangan;
@@ -200,7 +194,6 @@ class Gaji {
   factory Gaji.fromJson(Map m) => Gaji(id: (m['id'] as num).toInt(), tanggal: m['tanggal'].toString(), jam: m['jam'] ?? '', keterangan: m['keterangan'] ?? '', nominal: (m['nominal'] as num).toInt(), synced: m['synced'] ?? false);
 }
 
-// ===== FILTER =====
 enum FilterType { bulanIni, bulan, custom }
 
 class PeriodeFilter {
@@ -235,7 +228,6 @@ class PeriodeFilter {
   }
 }
 
-// ===== SETUP URL PAGE =====
 class SetupUrlPage extends StatefulWidget {
   const SetupUrlPage({super.key});
   @override
@@ -288,7 +280,7 @@ class _SetupUrlPageState extends State<SetupUrlPage> {
     );
   }
 }
-// ===== HOME =====
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
   @override
@@ -419,12 +411,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   int get pengeluaranUsahaPeriode {
     int total = 0;
     cache.forEach((tgl, v) {
-  final t = DateTime.parse(tgl); if (t.isBefore(sheetFilterMulai) || t.isAfter(sheetFilterAkhir)) return;
-  omsetToko += (v['toko'] ?? 0);
-  keluarUsaha += (v['keluarKasir'] ?? 0);
-});
-// Hitung total masuk usaha SEKALI SAJA di luar perulangan
-masukUsaha = omsetToko + bazar;
+      final t = DateTime.parse(tgl);
+      if (t.isBefore(filter.mulai) || t.isAfter(filter.akhir)) return;
+      total += (v['keluarKasir'] ?? 0);
+    });
     for (final p in peng) {
       final t = DateTime.parse(p.tanggal);
       if (t.isBefore(filter.mulai) || t.isAfter(filter.akhir)) continue;
@@ -701,7 +691,6 @@ masukUsaha = omsetToko + bazar;
     return GREEN;
   }
 
-  // ===== BOTTOM SHEET RINCIAN =====
   void _showRincian(String tipe) {
     DateTime sheetFilterMulai = filter.mulai;
     DateTime sheetFilterAkhir = filter.akhir;
@@ -722,20 +711,23 @@ masukUsaha = omsetToko + bazar;
             final awalUsaha = stateSaldo['usaha']!;
 
             int masukRT = 0, keluarRT = 0, masukUsaha = 0, keluarUsaha = 0;
-int omsetToko = 0, bazar = 0, modalKasir = 0, bahanBaku = 0;
+            int omsetToko = 0, bazar = 0, modalKasir = 0, bahanBaku = 0;
+
             for (final g in gaji) { final t = DateTime.parse(g.tanggal); if (t.isBefore(sheetFilterMulai) || t.isAfter(sheetFilterAkhir)) continue; masukRT += g.nominal; }
             for (final p in peng) {
               final t = DateTime.parse(p.tanggal); if (t.isBefore(sheetFilterMulai) || t.isAfter(sheetFilterAkhir)) continue;
-              if (p.kategori == 'Bahan Baku') { keluarUsaha += p.nominal; } 
+              if (p.kategori == 'Bahan Baku') { bahanBaku += p.nominal; } 
               else if (p.kategori == 'Bazar') { bazar += p.nominal; }
               else { keluarRT += p.nominal; }
             }
             cache.forEach((tgl, v) {
-  final t = DateTime.parse(tgl); if (t.isBefore(sheetFilterMulai) || t.isAfter(sheetFilterAkhir)) return;
-  omsetToko += (v['toko'] ?? 0);
-  keluarUsaha += (v['keluarKasir'] ?? 0);
-});
-masukUsaha = omsetToko + bazar;
+              final t = DateTime.parse(tgl); if (t.isBefore(sheetFilterMulai) || t.isAfter(sheetFilterAkhir)) return;
+              omsetToko += (v['toko'] ?? 0);
+              modalKasir += (v['keluarKasir'] ?? 0);
+            });
+            masukUsaha = omsetToko + bazar;
+            keluarUsaha = modalKasir + bahanBaku;
+
             Widget row(String label, String val, {bool bold = false, Color? color}) => Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(label, style: TextStyle(fontSize: 13, color: bold ? TEXT : TEXT_SUB, fontWeight: bold ? FontWeight.bold : FontWeight.normal)), Text(val, style: TextStyle(fontSize: bold ? 15 : 13, color: color ?? TEXT, fontWeight: bold ? FontWeight.bold : FontWeight.normal))]));
             Widget divider() => Divider(color: TEXT_DIM.withOpacity(0.5), height: 20);
 
@@ -762,9 +754,6 @@ masukUsaha = omsetToko + bazar;
             } else if (tipe == 'usaha') {
               title = 'Rincian Saldo Usaha';
               int selisih = masukUsaha - keluarUsaha; int akhir = awalUsaha + selisih;
-              cache.forEach((tgl, v) { final t = DateTime.parse(tgl); if (t.isBefore(sheetFilterMulai) || t.isAfter(sheetFilterAkhir)) return; modalKasir += (v['keluarKasir'] ?? 0); });
-              for (final p in peng) { final t = DateTime.parse(p.tanggal); if (t.isBefore(sheetFilterMulai) || t.isAfter(sheetFilterAkhir)) continue; if (p.kategori == 'Bahan Baku') bahanBaku += p.nominal; }
-
               content = [
                 Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: ACCENT.withOpacity(0.1), borderRadius: BorderRadius.circular(8), border: Border.all(color: ACCENT.withOpacity(0.3))), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text('Saldo Awal Periode', style: TextStyle(fontSize: 12, color: TEXT_SUB)), Text('Rp ${rp(awalUsaha)}', style: TextStyle(fontWeight: FontWeight.bold, color: TEXT))])),
                 const SizedBox(height: 16),
@@ -779,7 +768,7 @@ masukUsaha = omsetToko + bazar;
                 divider(), row('Total Keluar', '- Rp ${rp(keluarUsaha)}', bold: true, color: RED),
                 const SizedBox(height: 12),
                 Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text('Selisih Periode Ini', style: TextStyle(fontSize: 13, color: TEXT_SUB)), Text('${selisih >= 0 ? '+' : ''} Rp ${rp(selisih)}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: selisih >= 0 ? GREEN : RED))]),
-                divider(), row('NETTO AKHIR', 'Rp ${rp(akhir)}', bold: true, color: akhir >= 0 ? TEXT : RED),
+                divider(), row('SISA USAHA AKHIR', 'Rp ${rp(akhir)}', bold: true, color: akhir >= 0 ? TEXT : RED),
               ];
             } else {
               title = 'Rincian Uang Saat Ini';
@@ -851,7 +840,6 @@ masukUsaha = omsetToko + bazar;
     );
   }
 
-  // ===== BUILD HOME =====
   @override
   Widget build(BuildContext context) {
     final rw = riwayat;
@@ -895,7 +883,6 @@ masukUsaha = omsetToko + bazar;
                 Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Flexible(child: Text(filter.label, style: TextStyle(fontSize: 13, color: ACCENT))), GestureDetector(onTap: _openFilter, child: Icon(Icons.arrow_drop_down, color: ACCENT, size: 26))]),
                 const SizedBox(height: 12),
                 
-                // === BARIS UANG & PERSENTASE ===
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween, crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
