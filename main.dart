@@ -722,7 +722,7 @@ masukUsaha = omsetToko + bazar;
             final awalUsaha = stateSaldo['usaha']!;
 
             int masukRT = 0, keluarRT = 0, masukUsaha = 0, keluarUsaha = 0;
-int omsetToko = 0, bazar = 0; // Pindah ke sini
+int omsetToko = 0, bazar = 0, modalKasir = 0, bahanBaku = 0;
             for (final g in gaji) { final t = DateTime.parse(g.tanggal); if (t.isBefore(sheetFilterMulai) || t.isAfter(sheetFilterAkhir)) continue; masukRT += g.nominal; }
             for (final p in peng) {
               final t = DateTime.parse(p.tanggal); if (t.isBefore(sheetFilterMulai) || t.isAfter(sheetFilterAkhir)) continue;
@@ -762,7 +762,6 @@ masukUsaha = omsetToko + bazar;
             } else if (tipe == 'usaha') {
               title = 'Rincian Saldo Usaha';
               int selisih = masukUsaha - keluarUsaha; int akhir = awalUsaha + selisih;
-              int modalKasir = 0, bahanBaku = 0;
               cache.forEach((tgl, v) { final t = DateTime.parse(tgl); if (t.isBefore(sheetFilterMulai) || t.isAfter(sheetFilterAkhir)) return; modalKasir += (v['keluarKasir'] ?? 0); });
               for (final p in peng) { final t = DateTime.parse(p.tanggal); if (t.isBefore(sheetFilterMulai) || t.isAfter(sheetFilterAkhir)) continue; if (p.kategori == 'Bahan Baku') bahanBaku += p.nominal; }
 
