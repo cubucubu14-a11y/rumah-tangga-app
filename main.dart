@@ -722,8 +722,7 @@ masukUsaha = omsetToko + bazar;
             final awalUsaha = stateSaldo['usaha']!;
 
             int masukRT = 0, keluarRT = 0, masukUsaha = 0, keluarUsaha = 0;
-            int omsetToko = 0, bazar = 0;
-
+int omsetToko = 0, bazar = 0; // Pindah ke sini
             for (final g in gaji) { final t = DateTime.parse(g.tanggal); if (t.isBefore(sheetFilterMulai) || t.isAfter(sheetFilterAkhir)) continue; masukRT += g.nominal; }
             for (final p in peng) {
               final t = DateTime.parse(p.tanggal); if (t.isBefore(sheetFilterMulai) || t.isAfter(sheetFilterAkhir)) continue;
@@ -732,12 +731,11 @@ masukUsaha = omsetToko + bazar;
               else { keluarRT += p.nominal; }
             }
             cache.forEach((tgl, v) {
-              final t = DateTime.parse(tgl); if (t.isBefore(sheetFilterMulai) || t.isAfter(sheetFilterAkhir)) return;
-              omsetToko += (v['toko'] ?? 0);
-              masukUsaha += (v['toko'] ?? 0) + (v['lain'] ?? 0) + bazar;
-              keluarUsaha += (v['keluarKasir'] ?? 0);
-            });
-
+  final t = DateTime.parse(tgl); if (t.isBefore(sheetFilterMulai) || t.isAfter(sheetFilterAkhir)) return;
+  omsetToko += (v['toko'] ?? 0);
+  keluarUsaha += (v['keluarKasir'] ?? 0);
+});
+masukUsaha = omsetToko + bazar;
             Widget row(String label, String val, {bool bold = false, Color? color}) => Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(label, style: TextStyle(fontSize: 13, color: bold ? TEXT : TEXT_SUB, fontWeight: bold ? FontWeight.bold : FontWeight.normal)), Text(val, style: TextStyle(fontSize: bold ? 15 : 13, color: color ?? TEXT, fontWeight: bold ? FontWeight.bold : FontWeight.normal))]));
             Widget divider() => Divider(color: TEXT_DIM.withOpacity(0.5), height: 20);
 
