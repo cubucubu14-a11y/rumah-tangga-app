@@ -419,10 +419,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   int get pengeluaranUsahaPeriode {
     int total = 0;
     cache.forEach((tgl, v) {
-      final t = DateTime.parse(tgl);
-      if (t.isBefore(filter.mulai) || t.isAfter(filter.akhir)) return;
-      total += (v['keluarKasir'] ?? 0);
-    });
+  final t = DateTime.parse(tgl); if (t.isBefore(sheetFilterMulai) || t.isAfter(sheetFilterAkhir)) return;
+  omsetToko += (v['toko'] ?? 0);
+  keluarUsaha += (v['keluarKasir'] ?? 0);
+});
+// Hitung total masuk usaha SEKALI SAJA di luar perulangan
+masukUsaha = omsetToko + bazar;
     for (final p in peng) {
       final t = DateTime.parse(p.tanggal);
       if (t.isBefore(filter.mulai) || t.isAfter(filter.akhir)) continue;
@@ -780,7 +782,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 divider(), row('Total Keluar', '- Rp ${rp(keluarUsaha)}', bold: true, color: RED),
                 const SizedBox(height: 12),
                 Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text('Selisih Periode Ini', style: TextStyle(fontSize: 13, color: TEXT_SUB)), Text('${selisih >= 0 ? '+' : ''} Rp ${rp(selisih)}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: selisih >= 0 ? GREEN : RED))]),
-                divider(), row('SISA USAHA AKHIR', 'Rp ${rp(akhir)}', bold: true, color: akhir >= 0 ? TEXT : RED),
+                divider(), row('NETTO AKHIR', 'Rp ${rp(akhir)}', bold: true, color: akhir >= 0 ? TEXT : RED),
               ];
             } else {
               title = 'Rincian Uang Saat Ini';
