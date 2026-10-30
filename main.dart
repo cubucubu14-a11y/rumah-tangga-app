@@ -43,7 +43,7 @@ Map<int, int>? gInitSaldoAwal;
 List<PengRT>? gInitPeng;
 List<Gaji>? gInitGaji;
 bool gFirstRun = false;
-String gAppTitle = 'Keuangan Nyoya Putri'; // Variabel Judul
+String gAppTitle = 'Keuangan Nyoya Putri';
 
 Map<String, Map<String, int>> parseCacheStatic(Map raw) {
   final result = <String, Map<String, int>>{};
@@ -65,8 +65,7 @@ void main() async {
 
   final savedUrl = p.getString('script_url');
   if (savedUrl != null && savedUrl.isNotEmpty) SCRIPT_URL = savedUrl;
-  
-  gAppTitle = p.getString('app_title') ?? 'Keuangan Nyoya Putri'; // Load Judul
+  gAppTitle = p.getString('app_title') ?? 'Keuangan Nyoya Putri';
 
   try {
     final pj = p.getString('pengRT');
@@ -236,6 +235,7 @@ class _SetupUrlPageState extends State<SetupUrlPage> {
     );
   }
 }
+
 // ===== HOME =====
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -252,8 +252,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Map<int, int> saldoAwal = {};
 
   PeriodeFilter filter = PeriodeFilter();
-  String filterKategori = 'Semua'; // Fitur Filter Kategori
-  String currentTitle = gAppTitle; // Fitur Judul Dinamis
+  String filterKategori = 'Semua'; 
+  String currentTitle = gAppTitle;
   
   bool syncing = false;
   String progress = '';
@@ -412,7 +412,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   int get saldoUsaha => saldoAwalUsahaPeriode + pemasukanUsahaPeriode - pengeluaranUsahaPeriode;
   int get saldoGlobal => saldoRT + saldoUsaha;
 
-  // FITUR BARU: Persentase Margin
   double get marginUsaha {
     if (pemasukanUsahaPeriode <= 0) return 0;
     return (saldoUsaha / pemasukanUsahaPeriode) * 100;
@@ -420,7 +419,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   int get belumSync => peng.where((t) => !t.synced).length + gaji.where((t) => !t.synced).length + pengDel.length + gajiDel.length;
 
-  // FITUR BARU: Ambil Omset & Pemasukan Lain dari Cache untuk Riwayat
   List<Map<String, dynamic>> _getCacheRiwayat() {
     final list = <Map<String, dynamic>>[];
     cache.forEach((tgl, v) {
@@ -437,7 +435,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return list;
   }
 
-  // FITUR BARU: Update Riwayat dengan Filter
   List<dynamic> get riwayat {
     final list = <dynamic>[];
     for (final p in peng) {
@@ -467,6 +464,22 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       return idB.compareTo(idA);
     });
     return list;
+  }
+
+  // FITUR BARU: Total Akumulasi Riwayat
+  int get totalRiwayat {
+    int total = 0;
+    for (final item in riwayat) {
+      if (item is PengRT) {
+        if (item.kategori == 'Bazar') { total += item.nominal; } 
+        else { total -= item.nominal; }
+      } else if (item is Gaji) {
+        total += item.nominal;
+      } else if (item is Map) {
+        total += (item['nominal'] as int);
+      }
+    }
+    return total;
   }
 
   // ===== SYNC =====
@@ -562,7 +575,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (mounted) setState(() {});
   }
 
-  // FITUR BARU: Ubah Judul
   Future<void> _ubahJudul() async {
     final ctrl = TextEditingController(text: currentTitle);
     final p = await SharedPreferences.getInstance();
@@ -598,7 +610,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (r == true) { await _reloadLocal(); _sync(silent: true); }
   }
 
-  // FITUR BARU: Edit Bazar (Buka Form Pemasukan)
   Future<void> _editBazar(PengRT t) async {
     final r = await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) => TambahGajiPage(existingBazar: t)));
     if (r == true) { await _reloadLocal(); _sync(silent: true); }
@@ -876,7 +887,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 else if (v == 'saldo') _openSaldoAwal();
                 else if (v == 'url') _showUrlDialog();
                 else if (v == 'theme') _toggleTheme();
-                else if (v == 'title') _ubahJudul(); // Fitur Ubah Judul
+                else if (v == 'title') _ubahJudul();
               },
               itemBuilder: (c) => [
                 PopupMenuItem(value: 'sheet', child: Row(children: [Icon(Icons.table_chart, color: GREEN, size: 18), const SizedBox(width: 8), Text('Lihat Sheet', style: TextStyle(color: TEXT))])),
@@ -929,7 +940,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   Expanded(child: GestureDetector(onTap: () => _showRincian('rt'), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('SALDO RT', style: TextStyle(color: TEXT_SUB, fontSize: 11)), Text('Rp ${rp(sRT)}', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: sRT >= 0 ? GREEN : RED))]))),
                   Container(width: 1, height: 35, color: TEXT_DIM), const SizedBox(width: 12),
                   
-                  // FITUR BARU: Persentase Margin
                   Expanded(child: GestureDetector(onTap: () => _showRincian('usaha'), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text('NETTO USAHA', style: TextStyle(color: TEXT_SUB, fontSize: 11)), 
                     Row(
@@ -958,11 +968,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           ]),
           const SizedBox(height: 16),
 
-          // FITUR BARU: Filter Kategori di Riwayat
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Riwayat (${rw.length})', style: TextStyle(fontSize: 13, color: ACCENT)),
+              Row(
+                children: [
+                  Text('Riwayat (${rw.length})', style: TextStyle(fontSize: 13, color: ACCENT)),
+                  const SizedBox(width: 8),
+                  // FITUR BARU: Teks Total Akumulasi
+                  Text(
+                    '• Total: Rp ${rp(totalRiwayat)}', 
+                    style: TextStyle(fontSize: 12, color: totalRiwayat >= 0 ? GREEN : RED, fontWeight: FontWeight.bold)
+                  ),
+                ],
+              ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 decoration: BoxDecoration(color: CARD, borderRadius: BorderRadius.circular(8)),
@@ -1015,7 +1034,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           const SizedBox(height: 2),
           Text('${t.kategori} • Rp ${rp(t.nominal)}', style: TextStyle(color: isBazar ? GREEN : (t.kategori == 'Bahan Baku' ? YELLOW : RED), fontSize: 11, fontWeight: FontWeight.bold)),
         ])),
-        // FITUR BARU: Edit Bazar
         IconButton(icon: Icon(Icons.edit, size: 18, color: ACCENT), onPressed: () {
           if (isBazar) { _editBazar(t); } else { _editPeng(t); }
         }),
@@ -1111,7 +1129,7 @@ class _TambahPengPageState extends State<TambahPengPage> {
 
 // ===== TAMBAH/EDIT PEMASUKAN (OTHER & BAZAR) =====
 class TambahGajiPage extends StatefulWidget {
-  final PengRT? existingBazar; // Fitur Edit Bazar
+  final PengRT? existingBazar; 
   const TambahGajiPage({super.key, this.existingBazar});
   @override
   State<TambahGajiPage> createState() => _TambahGajiPageState();
