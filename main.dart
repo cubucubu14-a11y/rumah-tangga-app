@@ -26,29 +26,15 @@ bool _isLight = false;
 void applyTheme(bool light) {
   _isLight = light;
   if (light) {
-    BG = const Color(0xFFF4F4F8);
-    CARD = Colors.white;
-    CARD2 = const Color(0xFFE4E4EC);
-    ACCENT = const Color(0xFF1E66F5);
-    GREEN = const Color(0xFF40A02B);
-    RED = const Color(0xFFD20F39);
-    YELLOW = const Color(0xFFDF8E1D);
-    PURPLE = const Color(0xFF8839EF);
-    TEXT = Colors.black87;
-    TEXT_SUB = Colors.black54;
-    TEXT_DIM = Colors.black38;
+    BG = const Color(0xFFF4F4F8); CARD = Colors.white; CARD2 = const Color(0xFFE4E4EC);
+    ACCENT = const Color(0xFF1E66F5); GREEN = const Color(0xFF40A02B); RED = const Color(0xFFD20F39);
+    YELLOW = const Color(0xFFDF8E1D); PURPLE = const Color(0xFF8839EF); TEXT = Colors.black87;
+    TEXT_SUB = Colors.black54; TEXT_DIM = Colors.black38;
   } else {
-    BG = const Color(0xFF1E1E2E);
-    CARD = const Color(0xFF313244);
-    CARD2 = const Color(0xFF45475A);
-    ACCENT = const Color(0xFF89B4FA);
-    GREEN = const Color(0xFFA6E3A1);
-    RED = const Color(0xFFF38BA8);
-    YELLOW = const Color(0xFFF9E2AF);
-    PURPLE = const Color(0xFFCBA6F7);
-    TEXT = Colors.white;
-    TEXT_SUB = Colors.white70;
-    TEXT_DIM = Colors.white38;
+    BG = const Color(0xFF1E1E2E); CARD = const Color(0xFF313244); CARD2 = const Color(0xFF45475A);
+    ACCENT = const Color(0xFF89B4FA); GREEN = const Color(0xFFA6E3A1); RED = const Color(0xFFF38BA8);
+    YELLOW = const Color(0xFFF9E2AF); PURPLE = const Color(0xFFCBA6F7); TEXT = Colors.white;
+    TEXT_SUB = Colors.white70; TEXT_DIM = Colors.white38;
   }
 }
 
@@ -57,6 +43,7 @@ Map<int, int>? gInitSaldoAwal;
 List<PengRT>? gInitPeng;
 List<Gaji>? gInitGaji;
 bool gFirstRun = false;
+String gAppTitle = 'Keuangan Nyoya Putri'; // Variabel Judul
 
 Map<String, Map<String, int>> parseCacheStatic(Map raw) {
   final result = <String, Map<String, int>>{};
@@ -78,6 +65,8 @@ void main() async {
 
   final savedUrl = p.getString('script_url');
   if (savedUrl != null && savedUrl.isNotEmpty) SCRIPT_URL = savedUrl;
+  
+  gAppTitle = p.getString('app_title') ?? 'Keuangan Nyoya Putri'; // Load Judul
 
   try {
     final pj = p.getString('pengRT');
@@ -112,10 +101,7 @@ class RTApp extends StatefulWidget {
 
 class _RTAppState extends State<RTApp> {
   @override
-  void initState() {
-    super.initState();
-    _loadTheme();
-  }
+  void initState() { super.initState(); _loadTheme(); }
 
   Future<void> _loadTheme() async {
     final p = await SharedPreferences.getInstance();
@@ -142,11 +128,9 @@ class _RTAppState extends State<RTApp> {
 String tglStr(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 String jamStr(DateTime d) => '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
 String jamPendek(String s) {
-  if (s.isEmpty) return '';
-  if (s.length <= 5) return s;
+  if (s.isEmpty) return ''; if (s.length <= 5) return s;
   final m = RegExp(r'(\d{1,2}):(\d{2})').firstMatch(s);
-  if (m != null) return '${m.group(1)!.padLeft(2, '0')}:${m.group(2)}';
-  return s;
+  if (m != null) return '${m.group(1)!.padLeft(2, '0')}:${m.group(2)}'; return s;
 }
 String rp(int n) {
   final neg = n < 0;
@@ -156,39 +140,30 @@ String rp(int n) {
 int nowStamp() => DateTime.now().millisecondsSinceEpoch;
 String fmtTgl(String t) {
   if (t.length < 10) return t;
-  final p = t.split('-');
-  const b = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+  final p = t.split('-'); const b = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
   return '${p[2]} ${b[int.parse(p[1]) - 1]} ${p[0]}';
 }
 const List<String> BLN_SHORT = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
 
 Future<Map<String, dynamic>> apiGet(Map<String, String> p) async {
-  if (SCRIPT_URL.isEmpty) return {'status': 'error', 'message': 'URL Apps Script belum diatur'};
+  if (SCRIPT_URL.isEmpty) return {'status': 'error', 'message': 'URL belum diatur'};
   try {
     final uri = Uri.parse(SCRIPT_URL).replace(queryParameters: p);
     final r = await http.get(uri).timeout(const Duration(seconds: 30));
     if (r.statusCode == 200) return jsonDecode(r.body);
     return {'status': 'error', 'message': 'HTTP ${r.statusCode}'};
-  } catch (e) {
-    return {'status': 'error', 'message': e.toString()};
-  }
+  } catch (e) { return {'status': 'error', 'message': e.toString()}; }
 }
 
 class PengRT {
-  final int id;
-  String tanggal, jam, kategori, keterangan;
-  int nominal;
-  bool synced;
+  final int id; String tanggal, jam, kategori, keterangan; int nominal; bool synced;
   PengRT({required this.id, required this.tanggal, required this.jam, required this.kategori, required this.keterangan, required this.nominal, this.synced = false});
   Map<String, dynamic> toJson() => {'id': id, 'tanggal': tanggal, 'jam': jam, 'kategori': kategori, 'keterangan': keterangan, 'nominal': nominal, 'synced': synced};
   factory PengRT.fromJson(Map m) => PengRT(id: (m['id'] as num).toInt(), tanggal: m['tanggal'].toString(), jam: m['jam'] ?? '', kategori: m['kategori'] ?? 'Rumah Tangga', keterangan: m['keterangan'] ?? '', nominal: (m['nominal'] as num).toInt(), synced: m['synced'] ?? false);
 }
 
 class Gaji {
-  final int id;
-  String tanggal, jam, keterangan;
-  int nominal;
-  bool synced;
+  final int id; String tanggal, jam, keterangan; int nominal; bool synced;
   Gaji({required this.id, required this.tanggal, required this.jam, required this.keterangan, required this.nominal, this.synced = false});
   Map<String, dynamic> toJson() => {'id': id, 'tanggal': tanggal, 'jam': jam, 'keterangan': keterangan, 'nominal': nominal, 'synced': synced};
   factory Gaji.fromJson(Map m) => Gaji(id: (m['id'] as num).toInt(), tanggal: m['tanggal'].toString(), jam: m['jam'] ?? '', keterangan: m['keterangan'] ?? '', nominal: (m['nominal'] as num).toInt(), synced: m['synced'] ?? false);
@@ -197,12 +172,8 @@ class Gaji {
 enum FilterType { bulanIni, bulan, custom }
 
 class PeriodeFilter {
-  FilterType type;
-  DateTime? bulanDipilih;
-  DateTime? customMulai, customAkhir;
-
+  FilterType type; DateTime? bulanDipilih; DateTime? customMulai, customAkhir;
   PeriodeFilter({this.type = FilterType.bulanIni, this.bulanDipilih, this.customMulai, this.customAkhir});
-
   DateTime get mulai {
     final now = DateTime.now();
     switch (type) {
@@ -236,51 +207,36 @@ class SetupUrlPage extends StatefulWidget {
 
 class _SetupUrlPageState extends State<SetupUrlPage> {
   final _ctrl = TextEditingController();
-
   Future<void> _simpan() async {
     final url = _ctrl.text.trim();
     if (url.isEmpty || !url.startsWith('https://script.google.com')) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('URL tidak valid')));
-      return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('URL tidak valid'))); return;
     }
     final p = await SharedPreferences.getInstance();
-    await p.setString('script_url', url);
-    SCRIPT_URL = url;
+    await p.setString('script_url', url); SCRIPT_URL = url;
     if (!mounted) return;
     Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomePage()));
   }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: BG,
-      body: SafeArea(child: Padding(
-        padding: const EdgeInsets.all(24),
+      body: SafeArea(child: Padding(padding: const EdgeInsets.all(24),
         child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(Icons.link, size: 64, color: ACCENT),
-          const SizedBox(height: 16),
+          Icon(Icons.link, size: 64, color: ACCENT), const SizedBox(height: 16),
           Text('Hubungkan Aplikasi', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: TEXT)),
           const SizedBox(height: 8),
           Text('Paste URL Apps Script kamu di bawah ini:', style: TextStyle(color: TEXT_SUB, fontSize: 13), textAlign: TextAlign.center),
           const SizedBox(height: 24),
-          TextField(
-            controller: _ctrl,
-            decoration: InputDecoration(hintText: 'https://script.google.com/macros/...', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), filled: true, fillColor: CARD),
-            maxLines: 3,
-          ),
+          TextField(controller: _ctrl, decoration: InputDecoration(hintText: 'https://script.google.com/macros/...', border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)), filled: true, fillColor: CARD), maxLines: 3),
           const SizedBox(height: 24),
-          FilledButton.icon(
-            style: FilledButton.styleFrom(backgroundColor: GREEN, padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24)),
-            onPressed: _simpan,
-            icon: const Icon(Icons.save, color: Colors.black),
-            label: const Text('SIMPAN & MULAI', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-          )
+          FilledButton.icon(style: FilledButton.styleFrom(backgroundColor: GREEN, padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24)), onPressed: _simpan, icon: const Icon(Icons.save, color: Colors.black), label: const Text('SIMPAN & MULAI', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold))),
         ]),
       )),
     );
   }
 }
-
+// ===== HOME =====
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
   @override
@@ -296,6 +252,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Map<int, int> saldoAwal = {};
 
   PeriodeFilter filter = PeriodeFilter();
+  String filterKategori = 'Semua'; // Fitur Filter Kategori
+  String currentTitle = gAppTitle; // Fitur Judul Dinamis
+  
   bool syncing = false;
   String progress = '';
   bool offline = false;
@@ -453,27 +412,58 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   int get saldoUsaha => saldoAwalUsahaPeriode + pemasukanUsahaPeriode - pengeluaranUsahaPeriode;
   int get saldoGlobal => saldoRT + saldoUsaha;
 
+  // FITUR BARU: Persentase Margin
+  double get marginUsaha {
+    if (pemasukanUsahaPeriode <= 0) return 0;
+    return (saldoUsaha / pemasukanUsahaPeriode) * 100;
+  }
+
   int get belumSync => peng.where((t) => !t.synced).length + gaji.where((t) => !t.synced).length + pengDel.length + gajiDel.length;
 
+  // FITUR BARU: Ambil Omset & Pemasukan Lain dari Cache untuk Riwayat
+  List<Map<String, dynamic>> _getCacheRiwayat() {
+    final list = <Map<String, dynamic>>[];
+    cache.forEach((tgl, v) {
+      final t = DateTime.parse(tgl);
+      if (t.isBefore(filter.mulai) || t.isAfter(filter.akhir)) return;
+      
+      if ((v['toko'] ?? 0) > 0) {
+        list.add({'tipe': 'Omset Toko', 'tanggal': tgl, 'keterangan': 'Omset Harian', 'kategori': 'Omset Toko', 'nominal': v['toko']!, 'jam': '00:00'});
+      }
+      if ((v['lain'] ?? 0) > 0) {
+        list.add({'tipe': 'Pemasukan Lain', 'tanggal': tgl, 'keterangan': 'Pemasukan Lain', 'kategori': 'Pemasukan Lain', 'nominal': v['lain']!, 'jam': '00:00'});
+      }
+    });
+    return list;
+  }
+
+  // FITUR BARU: Update Riwayat dengan Filter
   List<dynamic> get riwayat {
     final list = <dynamic>[];
     for (final p in peng) {
       final t = DateTime.parse(p.tanggal);
       if (t.isBefore(filter.mulai) || t.isAfter(filter.akhir)) continue;
+      if (filterKategori != 'Semua' && p.kategori != filterKategori) continue; 
       list.add(p);
     }
     for (final g in gaji) {
       final t = DateTime.parse(g.tanggal);
       if (t.isBefore(filter.mulai) || t.isAfter(filter.akhir)) continue;
+      if (filterKategori != 'Semua' && filterKategori != 'Gaji') continue;
       list.add(g);
     }
+    final cacheList = _getCacheRiwayat();
+    for (final c in cacheList) {
+      if (filterKategori != 'Semua' && c['kategori'] != filterKategori) continue;
+      list.add(c);
+    }
     list.sort((a, b) {
-      final tglA = a is PengRT ? a.tanggal : (a as Gaji).tanggal;
-      final tglB = b is PengRT ? b.tanggal : (b as Gaji).tanggal;
+      final tglA = a is PengRT ? a.tanggal : (a is Gaji ? a.tanggal : a['tanggal']);
+      final tglB = b is PengRT ? b.tanggal : (b is Gaji ? b.tanggal : b['tanggal']);
       final cmp = tglB.compareTo(tglA);
       if (cmp != 0) return cmp;
-      final idA = a is PengRT ? a.id : (a as Gaji).id;
-      final idB = b is PengRT ? b.id : (b as Gaji).id;
+      final idA = a is PengRT ? a.id : (a is Gaji ? a.id : 0);
+      final idB = b is PengRT ? b.id : (b is Gaji ? b.id : 0);
       return idB.compareTo(idA);
     });
     return list;
@@ -572,6 +562,27 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (mounted) setState(() {});
   }
 
+  // FITUR BARU: Ubah Judul
+  Future<void> _ubahJudul() async {
+    final ctrl = TextEditingController(text: currentTitle);
+    final p = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    await showDialog(context: context, builder: (c) => AlertDialog(
+      title: const Text('Ubah Judul Aplikasi'),
+      content: TextField(controller: ctrl, decoration: const InputDecoration(border: OutlineInputBorder(), hintText: 'Masukkan judul baru')),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(c), child: const Text('BATAL')),
+        ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: GREEN), onPressed: () async {
+          final newTitle = ctrl.text.trim();
+          if (newTitle.isNotEmpty) {
+            await p.setString('app_title', newTitle);
+            if (mounted) { setState(() => currentTitle = newTitle); Navigator.pop(c); _snack('✓ Judul diubah', ok: true); }
+          }
+        }, child: const Text('SIMPAN', style: TextStyle(color: Colors.black))),
+      ],
+    ));
+  }
+
   Future<void> _tambahPeng() async {
     final r = await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) => const TambahPengPage()));
     if (r == true) { await _reloadLocal(); _sync(silent: true); }
@@ -584,6 +595,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   Future<void> _editPeng(PengRT t) async {
     final r = await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) => TambahPengPage(existing: t)));
+    if (r == true) { await _reloadLocal(); _sync(silent: true); }
+  }
+
+  // FITUR BARU: Edit Bazar (Buka Form Pemasukan)
+  Future<void> _editBazar(PengRT t) async {
+    final r = await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) => TambahGajiPage(existingBazar: t)));
     if (r == true) { await _reloadLocal(); _sync(silent: true); }
   }
 
@@ -675,8 +692,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: GREEN), onPressed: () async {
           final url = ctrl.text.trim();
           if (url.startsWith('https://script.google.com')) {
-            await p.setString('script_url', url);
-            SCRIPT_URL = url;
+            await p.setString('script_url', url); SCRIPT_URL = url;
             if (mounted) { Navigator.pop(c); _snack('✓ URL berhasil diubah', ok: true); Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomePage())); }
           } else { _snack('URL tidak valid', err: true); }
         }, child: const Text('SIMPAN', style: TextStyle(color: Colors.black))),
@@ -684,13 +700,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     ));
   }
 
-  Color get _syncColor {
-    if (syncing) return ACCENT;
-    if (offline) return Colors.grey;
-    if (belumSync > 0) return YELLOW;
-    return GREEN;
-  }
+  Color get _syncColor { if (syncing) return ACCENT; if (offline) return Colors.grey; if (belumSync > 0) return YELLOW; return GREEN; }
 
+  // ===== BOTTOM SHEET RINCIAN =====
   void _showRincian(String tipe) {
     DateTime sheetFilterMulai = filter.mulai;
     DateTime sheetFilterAkhir = filter.akhir;
@@ -840,6 +852,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
+  // ===== BUILD HOME =====
   @override
   Widget build(BuildContext context) {
     final rw = riwayat;
@@ -853,7 +866,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         padding: const EdgeInsets.all(12),
         child: Column(children: [
           Row(children: [
-            Expanded(child: Text('Keuangan Nyoya Putri', style: TextStyle(fontSize: 16, color: TEXT, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
+            Expanded(child: Text(currentTitle, style: TextStyle(fontSize: 16, color: TEXT, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
             GestureDetector(onTap: syncing ? null : () => _sync(), child: Container(padding: const EdgeInsets.all(6), child: syncing ? SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2, color: _syncColor)) : Icon(Icons.sync, color: _syncColor, size: 26))),
             PopupMenuButton<String>(
               icon: Icon(Icons.more_vert, color: TEXT_SUB, size: 22),
@@ -863,12 +876,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 else if (v == 'saldo') _openSaldoAwal();
                 else if (v == 'url') _showUrlDialog();
                 else if (v == 'theme') _toggleTheme();
+                else if (v == 'title') _ubahJudul(); // Fitur Ubah Judul
               },
               itemBuilder: (c) => [
                 PopupMenuItem(value: 'sheet', child: Row(children: [Icon(Icons.table_chart, color: GREEN, size: 18), const SizedBox(width: 8), Text('Lihat Sheet', style: TextStyle(color: TEXT))])),
                 PopupMenuItem(value: 'pull', child: Row(children: [Icon(Icons.cloud_download, color: ACCENT, size: 18), const SizedBox(width: 8), Text('Tarik Ulang', style: TextStyle(color: TEXT))])),
                 PopupMenuItem(value: 'saldo', child: Row(children: [Icon(Icons.account_balance_wallet, color: YELLOW, size: 18), const SizedBox(width: 8), Text('Atur Saldo Awal', style: TextStyle(color: TEXT))])),
                 PopupMenuItem(value: 'url', child: Row(children: [Icon(Icons.link, color: PURPLE, size: 18), const SizedBox(width: 8), Text('Atur URL', style: TextStyle(color: TEXT))])),
+                PopupMenuItem(value: 'title', child: Row(children: [Icon(Icons.edit_document, color: TEXT, size: 18), const SizedBox(width: 8), Text('Ubah Judul', style: TextStyle(color: TEXT))])),
                 PopupMenuItem(value: 'theme', child: Row(children: [Icon(_isLight ? Icons.dark_mode : Icons.light_mode, color: PURPLE, size: 18), const SizedBox(width: 8), Text(_isLight ? 'Mode Gelap' : 'Mode Terang', style: TextStyle(color: TEXT))])),
               ],
             ),
@@ -913,7 +928,23 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 Row(children: [
                   Expanded(child: GestureDetector(onTap: () => _showRincian('rt'), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('SALDO RT', style: TextStyle(color: TEXT_SUB, fontSize: 11)), Text('Rp ${rp(sRT)}', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: sRT >= 0 ? GREEN : RED))]))),
                   Container(width: 1, height: 35, color: TEXT_DIM), const SizedBox(width: 12),
-                  Expanded(child: GestureDetector(onTap: () => _showRincian('usaha'), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('NETTO USAHA', style: TextStyle(color: TEXT_SUB, fontSize: 11)), Text('Rp ${rp(sUsaha)}', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: sUsaha >= 0 ? GREEN : RED))]))),
+                  
+                  // FITUR BARU: Persentase Margin
+                  Expanded(child: GestureDetector(onTap: () => _showRincian('usaha'), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('NETTO USAHA', style: TextStyle(color: TEXT_SUB, fontSize: 11)), 
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text('Rp ${rp(sUsaha)}', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: sUsaha >= 0 ? GREEN : RED)),
+                        const SizedBox(width: 6),
+                        Builder(builder: (context) {
+                          double m = marginUsaha;
+                          Color c = m > 20 ? GREEN : (m >= 0 ? YELLOW : RED);
+                          return Text('(${m.toStringAsFixed(1)}%)', style: TextStyle(fontSize: 10, color: c, fontWeight: FontWeight.bold));
+                        }),
+                      ]
+                    ),
+                  ]))),
                 ]),
               ]),
             ),
@@ -927,10 +958,45 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           ]),
           const SizedBox(height: 16),
 
-          Align(alignment: Alignment.centerLeft, child: Text('Riwayat (${rw.length})', style: TextStyle(fontSize: 13, color: ACCENT))),
+          // FITUR BARU: Filter Kategori di Riwayat
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Riwayat (${rw.length})', style: TextStyle(fontSize: 13, color: ACCENT)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(color: CARD, borderRadius: BorderRadius.circular(8)),
+                child: DropdownButton<String>(
+                  value: filterKategori,
+                  underline: const SizedBox(),
+                  dropdownColor: CARD2,
+                  style: TextStyle(color: TEXT, fontSize: 12),
+                  icon: Icon(Icons.filter_list, color: ACCENT, size: 16),
+                  items: ['Semua', 'Rumah Tangga', 'Bahan Baku', 'Bazar', 'Gaji', 'Omset Toko', 'Pemasukan Lain'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+                  onChanged: (v) { if (v != null) setState(() => filterKategori = v); },
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 8),
 
-          if (rw.isEmpty) Padding(padding: const EdgeInsets.all(24), child: Text('Belum ada transaksi', style: TextStyle(color: TEXT_DIM))) else ...rw.map((it) => it is PengRT ? _itemPeng(it) : _itemGaji(it as Gaji)),
+          if (rw.isEmpty) Padding(padding: const EdgeInsets.all(24), child: Text('Belum ada transaksi', style: TextStyle(color: TEXT_DIM))) 
+          else ...rw.map((it) {
+            if (it is PengRT) return _itemPeng(it);
+            if (it is Gaji) return _itemGaji(it);
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12), decoration: BoxDecoration(color: CARD, borderRadius: BorderRadius.circular(10)),
+              child: Row(children: [
+                Icon(Icons.store, color: ACCENT, size: 18), const SizedBox(width: 12),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('${fmtTgl(it['tanggal'])}', style: TextStyle(color: TEXT_SUB, fontSize: 10)),
+                  Text(it['keterangan'], style: TextStyle(color: TEXT, fontSize: 14, fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 2),
+                  Text('${it['kategori']} • Rp ${rp(it['nominal'])}', style: TextStyle(color: ACCENT, fontSize: 11, fontWeight: FontWeight.bold)),
+                ])),
+              ]),
+            );
+          }),
           const SizedBox(height: 20),
         ]),
       )),
@@ -949,7 +1015,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           const SizedBox(height: 2),
           Text('${t.kategori} • Rp ${rp(t.nominal)}', style: TextStyle(color: isBazar ? GREEN : (t.kategori == 'Bahan Baku' ? YELLOW : RED), fontSize: 11, fontWeight: FontWeight.bold)),
         ])),
-        IconButton(icon: Icon(Icons.edit, size: 18, color: ACCENT), onPressed: () => _editPeng(t)),
+        // FITUR BARU: Edit Bazar
+        IconButton(icon: Icon(Icons.edit, size: 18, color: ACCENT), onPressed: () {
+          if (isBazar) { _editBazar(t); } else { _editPeng(t); }
+        }),
         IconButton(icon: Icon(Icons.delete, size: 18, color: RED), onPressed: () => _hapusPeng(t)),
       ]),
     );
@@ -1040,9 +1109,10 @@ class _TambahPengPageState extends State<TambahPengPage> {
   }
 }
 
-// ===== TAMBAH PEMASUKAN (OTHER) =====
+// ===== TAMBAH/EDIT PEMASUKAN (OTHER & BAZAR) =====
 class TambahGajiPage extends StatefulWidget {
-  const TambahGajiPage({super.key});
+  final PengRT? existingBazar; // Fitur Edit Bazar
+  const TambahGajiPage({super.key, this.existingBazar});
   @override
   State<TambahGajiPage> createState() => _TambahGajiPageState();
 }
@@ -1054,6 +1124,17 @@ class _TambahGajiPageState extends State<TambahGajiPage> {
   String _kat = 'Gaji';
   final _kats = ['Gaji', 'Bazar'];
 
+  @override
+  void initState() {
+    super.initState();
+    if (widget.existingBazar != null) {
+      _ket.text = widget.existingBazar!.keterangan;
+      _nom.text = widget.existingBazar!.nominal.toString();
+      _kat = 'Bazar';
+      try { _tgl = DateTime.parse(widget.existingBazar!.tanggal); } catch (_) {}
+    }
+  }
+
   Future<void> _save() async {
     if (_nom.text.isEmpty) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Nominal wajib'))); return; }
     final n = int.tryParse(_nom.text);
@@ -1061,6 +1142,16 @@ class _TambahGajiPageState extends State<TambahGajiPage> {
     
     final prefs = await SharedPreferences.getInstance();
     
+    // Hapus data lama jika sedang edit Bazar
+    if (widget.existingBazar != null) {
+      final listP = prefs.getString('pengRT');
+      if (listP != null) {
+        final arrP = (jsonDecode(listP) as List).map((e) => PengRT.fromJson(e)).toList();
+        arrP.removeWhere((x) => x.id == widget.existingBazar!.id);
+        await prefs.setString('pengRT', jsonEncode(arrP.map((t) => t.toJson()).toList()));
+      }
+    }
+
     if (_kat == 'Gaji') {
       final list = prefs.getString('gaji');
       final arr = list != null ? (jsonDecode(list) as List).map((e) => Gaji.fromJson(e)).toList() : <Gaji>[];
@@ -1081,7 +1172,7 @@ class _TambahGajiPageState extends State<TambahGajiPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: BG,
-      appBar: AppBar(title: const Text('Tambah Pemasukan'), backgroundColor: BG),
+      appBar: AppBar(title: Text(widget.existingBazar != null ? 'Edit Bazar' : 'Tambah Pemasukan'), backgroundColor: BG),
       body: SafeArea(child: ListView(padding: const EdgeInsets.all(16), children: [
         ListTile(title: const Text('Tanggal'), subtitle: Text(fmtTgl(tglStr(_tgl))), trailing: const Icon(Icons.calendar_today), onTap: () async { final p = await showDatePicker(context: context, initialDate: _tgl, firstDate: DateTime(2025), lastDate: DateTime(2035)); if (p != null) setState(() => _tgl = p); }),
         const SizedBox(height: 8),
