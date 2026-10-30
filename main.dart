@@ -759,7 +759,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
             if (tipe == 'rt') {
               title = 'Rincian Saldo RT';
-              int selisih = masukRT - keluarRT; int akhir = awalRT + selisih;
+              int selisih = pemasukanRTPeriode - pengeluaranRTPeriode; int akhir = awalRT + selisih;
               content = [
                 Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: ACCENT.withOpacity(0.1), borderRadius: BorderRadius.circular(8), border: Border.all(color: ACCENT.withOpacity(0.3))), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text('Saldo Awal Periode', style: TextStyle(fontSize: 12, color: TEXT_SUB)), Text('Rp ${rp(awalRT)}', style: TextStyle(fontWeight: FontWeight.bold, color: TEXT))])),
                 const SizedBox(height: 16),
@@ -768,7 +768,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 divider(), row('Total Masuk', '+ Rp ${rp(masukRT)}', bold: true, color: GREEN),
                 const SizedBox(height: 12),
                 Text('Pengeluaran RT', style: TextStyle(color: ACCENT, fontWeight: FontWeight.bold, fontSize: 13)),
-                row('Belanja RT', '- Rp ${rp(keluarRT)}', color: RED),
+                row('Belanja RT', '- Rp ${rp(pengeluaranRTPeriode)}', color: RED),
                 divider(), row('Total Keluar', '- Rp ${rp(keluarRT)}', bold: true, color: RED),
                 const SizedBox(height: 12),
                 Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text('Selisih Periode Ini', style: TextStyle(fontSize: 13, color: TEXT_SUB)), Text('${selisih >= 0 ? '+' : ''} Rp ${rp(selisih)}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: selisih >= 0 ? GREEN : RED))]),
@@ -806,7 +806,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 divider(), row('Total Masuk', '+ Rp ${rp(totalMasuk)}', bold: true, color: GREEN),
                 const SizedBox(height: 12),
                 Text('Total Pengeluaran', style: TextStyle(color: ACCENT, fontWeight: FontWeight.bold, fontSize: 13)),
-                row('Pengeluaran RT', '- Rp ${rp(keluarRT)}', color: RED),
+                row('Pengeluaran RT', '- Rp ${rp(pengeluaranRTPeriode)}', color: RED),
                 row('Pengeluaran Usaha', '- Rp ${rp(keluarUsaha)}', color: RED),
                 divider(), row('Total Keluar', '- Rp ${rp(totalKeluar)}', bold: true, color: RED),
                 const SizedBox(height: 12),
