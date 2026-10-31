@@ -1001,28 +1001,38 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           ),
           const SizedBox(height: 8),
 
-          if (rw.isEmpty) ...[
+          if (rw.isEmpty)
   Padding(
-    padding: const EdgeInsets.all(24), 
-    child: Text('Belum ada transaksi', style: TextStyle(color: TEXT_DIM))
+    padding: const EdgeInsets.all(24),
+    child: Text('Belum ada transaksi', style: TextStyle(color: TEXT_DIM)),
   )
-] else ...[
+else
   ...rw.map((it) {
-            if (it is PengRT) return _itemPeng(it);
-            if (it is Gaji) return _itemGaji(it);
-            return Container(
-              margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12), decoration: BoxDecoration(color: CARD, borderRadius: BorderRadius.circular(10)),
-              child: Row(children: [
-                Icon(Icons.store, color: ACCENT, size: 18), const SizedBox(width: 12),
-                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('${fmtTgl(it['tanggal'])}', style: TextStyle(color: TEXT_SUB, fontSize: 10)),
-                  Text(it['keterangan'], style: TextStyle(color: TEXT, fontSize: 14, fontWeight: FontWeight.w500)),
-                  const SizedBox(height: 2),
-                  Text('${it['kategori']} • Rp ${rp(it['nominal'])}', style: TextStyle(color: ACCENT, fontSize: 11, fontWeight: FontWeight.bold)),
-                ])),
-              ]),
-            );
-          ],
+    if (it is PengRT) return _itemPeng(it);
+    if (it is Gaji) return _itemGaji(it);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+      decoration: BoxDecoration(color: CARD, borderRadius: BorderRadius.circular(10)),
+      child: Row(
+        children: [
+          Icon(Icons.store, color: ACCENT, size: 18),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('${fmtTgl(it['tanggal'])}', style: TextStyle(color: TEXT_SUB, fontSize: 10)),
+                Text(it['keterangan'], style: TextStyle(color: TEXT, fontSize: 14, fontWeight: FontWeight.w500)),
+                const SizedBox(height: 2),
+                Text('${it['kategori']} • Rp ${rp(it['nominal'])}', style: TextStyle(color: ACCENT, fontSize: 11, fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }),
           const SizedBox(height: 20),
         ]),
       )),
