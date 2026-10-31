@@ -995,10 +995,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   icon: Icon(Icons.filter_list, color: ACCENT, size: 16),
                   items: ['Semua', 'Rumah Tangga', 'Bahan Baku', 'Bazar', 'Gaji', 'Omset Toko', 'Pemasukan Lain'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
                   onChanged: (v) { if (v != null) setState(() => filterKategori = v); },
-                ),
+                )),
               ),
             ],
-          ),
           const SizedBox(height: 8),
 
                   if (rw.isEmpty)
