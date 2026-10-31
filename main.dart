@@ -969,19 +969,21 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           const SizedBox(height: 16),
 
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Text('Riwayat (${rw.length})', style: TextStyle(fontSize: 13, color: ACCENT)),
-                  const SizedBox(width: 8),
-                  // FITUR BARU: Teks Total Akumulasi
-                  Text(
-                    '• Total: Rp ${rp(totalRiwayat)}', 
-                    style: TextStyle(fontSize: 12, color: totalRiwayat >= 0 ? GREEN : RED, fontWeight: FontWeight.bold)
-                  ),
-                ],
-              ),
+  children: [
+    Text('Riwayat (${rw.length})', style: TextStyle(fontSize: 13, color: ACCENT)),
+    const SizedBox(width: 8),
+    // Total hanya muncul jika filter BUKAN 'Semua'
+    if (filterKategori != 'Semua')
+      Text(
+        '• Total: Rp ${rp(totalRiwayat)}',
+        style: TextStyle(
+          fontSize: 12,
+          color: totalRiwayat >= 0 ? GREEN : RED,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+  ],
+),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 decoration: BoxDecoration(color: CARD, borderRadius: BorderRadius.circular(8)),
