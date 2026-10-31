@@ -1001,8 +1001,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           ),
           const SizedBox(height: 8),
 
-          if (rw.isEmpty) Padding(padding: const EdgeInsets.all(24), child: Text('Belum ada transaksi', style: TextStyle(color: TEXT_DIM))) 
-          else ...rw.map((it) {
+          if (rw.isEmpty) ...[
+  Padding(
+    padding: const EdgeInsets.all(24), 
+    child: Text('Belum ada transaksi', style: TextStyle(color: TEXT_DIM))
+  )
+] else ...[
+  ...rw.map((it) {
             if (it is PengRT) return _itemPeng(it);
             if (it is Gaji) return _itemGaji(it);
             return Container(
@@ -1017,7 +1022,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 ])),
               ]),
             );
-          }),
+          ],
           const SizedBox(height: 20),
         ]),
       )),
