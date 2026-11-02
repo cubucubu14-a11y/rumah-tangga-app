@@ -144,7 +144,7 @@ String fmtTgl(String t) {
 }
 const List<String> BLN_SHORT = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
 
-Future<Map<String, dynamic>> apiGet(Map<String, String> p) async {
+Future> apiGet(Map<String, String> p) async {
   if (SCRIPT_URL.isEmpty) return {'status': 'error', 'message': 'URL belum diatur'};
   try {
     final uri = Uri.parse(SCRIPT_URL).replace(queryParameters: p);
@@ -412,15 +412,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   int get saldoUsaha => saldoAwalUsahaPeriode + pemasukanUsahaPeriode - pengeluaranUsahaPeriode;
   int get saldoGlobal => saldoRT + saldoUsaha;
 
+  // Margin Usaha murni periode berjalan saja
   double get marginUsaha {
     if (pemasukanUsahaPeriode <= 0) return 0;
-    return (saldoUsaha / pemasukanUsahaPeriode) * 100;
+    int nettoPeriodeIni = pemasukanUsahaPeriode - pengeluaranUsahaPeriode;
+    return (nettoPeriodeIni / pemasukanUsahaPeriode) * 100;
   }
 
   int get belumSync => peng.where((t) => !t.synced).length + gaji.where((t) => !t.synced).length + pengDel.length + gajiDel.length;
 
-  List<Map<String, dynamic>> _getCacheRiwayat() {
-    final list = <Map<String, dynamic>>[];
+  List> _getCacheRiwayat() {
+    final list = >[];
     cache.forEach((tgl, v) {
       final t = DateTime.parse(tgl);
       if (t.isBefore(filter.mulai) || t.isAfter(filter.akhir)) return;
@@ -466,7 +468,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return list;
   }
 
-  // FITUR BARU: Total Akumulasi Riwayat
   int get totalRiwayat {
     int total = 0;
     for (final item in riwayat) {
@@ -483,15 +484,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   // ===== SYNC =====
-  Future<Map<String, dynamic>> _upPeng(PengRT t) => apiGet({'action': t.kategori == 'Bazar' ? 'upsert-bazar' : 'upsert-pengeluaran-rt', 'id': t.id.toString(), 'tanggal': t.tanggal, 'jam': t.jam, 'kategori': t.kategori, 'keterangan': t.keterangan, 'nominal': t.nominal.toString()});
-  Future<Map<String, dynamic>> _delPeng(int id) => apiGet({'action': 'delete-pengeluaran-rt', 'id': id.toString()});
-  Future<Map<String, dynamic>> _upGaji(Gaji t) => apiGet({'action': 'upsert-gaji', 'id': t.id.toString(), 'tanggal': t.tanggal, 'jam': t.jam, 'keterangan': t.keterangan, 'nominal': t.nominal.toString()});
-  Future<Map<String, dynamic>> _delGaji(int id) => apiGet({'action': 'delete-gaji', 'id': id.toString()});
+  Future> _upPeng(PengRT t) => apiGet({'action': t.kategori == 'Bazar' ? 'upsert-bazar' : 'upsert-pengeluaran-rt', 'id': t.id.toString(), 'tanggal': t.tanggal, 'jam': t.jam, 'kategori': t.kategori, 'keterangan': t.keterangan, 'nominal': t.nominal.toString()});
+  Future> _delPeng(int id) => apiGet({'action': 'delete-pengeluaran-rt', 'id': id.toString()});
+  Future> _upGaji(Gaji t) => apiGet({'action': 'upsert-gaji', 'id': t.id.toString(), 'tanggal': t.tanggal, 'jam': t.jam, 'keterangan': t.keterangan, 'nominal': t.nominal.toString()});
+  Future> _delGaji(int id) => apiGet({'action': 'delete-gaji', 'id': id.toString()});
 
   void _mergeRemote(Map<String, dynamic> r) {
     if (r['pengRT'] != null) {
       final lokalRT = peng.map((p) => p.id).toSet();
-      for (final m in (r['pengRT'] as List).cast<Map>()) {
+      for (final m in (r['pengRT'] as List).cast()) {
         final id = int.tryParse(m['id'].toString()) ?? 0;
         if (id == 0 || lokalRT.contains(id)) continue;
         peng.add(PengRT(id: id, tanggal: m['tanggal'].toString(), jam: m['jam'] ?? '', kategori: m['kategori'] ?? 'Rumah Tangga', keterangan: m['keterangan'] ?? '', nominal: (m['nominal'] as num).toInt(), synced: true));
@@ -499,7 +500,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
     if (r['gaji'] != null) {
       final lokalGJ = gaji.map((g) => g.id).toSet();
-      for (final m in (r['gaji'] as List).cast<Map>()) {
+      for (final m in (r['gaji'] as List).cast()) {
         final id = int.tryParse(m['id'].toString()) ?? 0;
         if (id == 0 || lokalGJ.contains(id)) continue;
         gaji.add(Gaji(id: id, tanggal: m['tanggal'].toString(), jam: m['jam'] ?? '', keterangan: m['keterangan'] ?? '', nominal: (m['nominal'] as num).toInt(), synced: true));
@@ -625,7 +626,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (ok == true) { setState(() { gaji.removeWhere((x) => x.id == g.id); if (g.synced) gajiDel.add(g.id); }); await _saveAll(); _sync(silent: true); }
   }
 
-  // ===== FILTER =====
   List<int> _listTahun() {
     final set = <int>{};
     for (int th = 2025; th <= 2035; th++) set.add(th);
@@ -678,6 +678,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   Future<void> _openSaldoAwal() async {
     final r = await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) => SaldoAwalPage(saldoAwal: saldoAwal, sisaSekarang: saldoGlobal)));
+    if (!mounted) return;
     if (r == true) {
       final p = await SharedPreferences.getInstance();
       final sa = p.getString('saldoAwal');
@@ -713,7 +714,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   Color get _syncColor { if (syncing) return ACCENT; if (offline) return Colors.grey; if (belumSync > 0) return YELLOW; return GREEN; }
 
-  // ===== BOTTOM SHEET RINCIAN =====
   void _showRincian(String tipe) {
     DateTime sheetFilterMulai = filter.mulai;
     DateTime sheetFilterAkhir = filter.akhir;
@@ -863,7 +863,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
-  // ===== BUILD HOME =====
   @override
   Widget build(BuildContext context) {
     final rw = riwayat;
@@ -975,7 +974,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 children: [
                   Text('Riwayat (${rw.length})', style: TextStyle(fontSize: 13, color: ACCENT)),
                   const SizedBox(width: 8),
-                  // FITUR BARU: Teks Total Akumulasi
                   Text(
                     '• Total: Rp ${rp(totalRiwayat)}', 
                     style: TextStyle(fontSize: 12, color: totalRiwayat >= 0 ? GREEN : RED, fontWeight: FontWeight.bold)
@@ -1160,7 +1158,6 @@ class _TambahGajiPageState extends State<TambahGajiPage> {
     
     final prefs = await SharedPreferences.getInstance();
     
-    // Hapus data lama jika sedang edit Bazar
     if (widget.existingBazar != null) {
       final listP = prefs.getString('pengRT');
       if (listP != null) {
@@ -1261,7 +1258,7 @@ class LihatSheetPage extends StatefulWidget {
 class _LihatSheetPageState extends State<LihatSheetPage> {
   bool loading = true;
   String? error;
-  Map<String, List<Map<String, dynamic>>> dataPerTab = {};
+  Map<String, List>> dataPerTab = {};
   List<String> urutanTab = [];
   Set<String> expanded = {};
 
@@ -1274,16 +1271,16 @@ class _LihatSheetPageState extends State<LihatSheetPage> {
     if (!mounted) return;
     if (rTabs['status'] != 'ok') { setState(() { loading = false; error = rTabs['message'] ?? 'Gagal'; }); return; }
     final tabs = (rTabs['tabs'] as List).map((e) => e.toString()).toList();
-    final hasil = <String, List<Map<String, dynamic>>>{};
+    final hasil = <String, List>>{};
     for (final tab in tabs) {
       final r = await apiGet({'action': 'get-data-tab', 'tab': tab});
-      hasil[tab] = r['status'] == 'ok' ? (r['data'] as List).cast<Map<String, dynamic>>() : [];
+      hasil[tab] = r['status'] == 'ok' ? (r['data'] as List).cast>() : [];
     }
     if (!mounted) return;
     setState(() { loading = false; urutanTab = tabs; dataPerTab = hasil; });
   }
 
-  Future<void> _hapusRentang(String tab, List<Map<String, dynamic>> dataTab) async {
+  Future<void> _hapusRentang(String tab, List> dataTab) async {
     if (dataTab.isEmpty) { _snack('Tidak ada data'); return; }
     final now = DateTime.now();
     final range = await showDateRangePicker(context: context, firstDate: DateTime(2025), lastDate: DateTime(2035), initialDateRange: DateTimeRange(start: now.subtract(const Duration(days: 7)), end: now), helpText: 'PILIH RENTANG HAPUS', saveText: 'PILIH', cancelText: 'BATAL', builder: (c, ch) => Theme(data: ThemeData(brightness: _isLight ? Brightness.light : Brightness.dark, colorScheme: ColorScheme.fromSeed(seedColor: RED, brightness: _isLight ? Brightness.light : Brightness.dark)), child: ch!));
@@ -1310,7 +1307,7 @@ class _LihatSheetPageState extends State<LihatSheetPage> {
     );
   }
 
-  Widget _card(String tab, List<Map<String, dynamic>> dataTab) {
+  Widget _card(String tab, List> dataTab) {
     final total = dataTab.fold<int>(0, (s, t) => s + ((t['nominal'] ?? 0) as int));
     final kosong = dataTab.isEmpty; final isExp = expanded.contains(tab); final show = isExp ? dataTab : dataTab.take(10).toList();
     return Container(margin: const EdgeInsets.only(bottom: 16), decoration: BoxDecoration(color: CARD, borderRadius: BorderRadius.circular(12), border: Border.all(color: CARD2)), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
