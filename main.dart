@@ -1280,13 +1280,13 @@ class _LihatSheetPageState extends State<LihatSheetPage> {
     setState(() { loading = false; urutanTab = tabs; dataPerTab = hasil; });
   }
 
-  Future<void> _hapusRentang(String tab, List> dataTab) async {
+  Future<void> _hapusRentang(String tab, List dataTab) async {
     if (dataTab.isEmpty) { _snack('Tidak ada data'); return; }
     final now = DateTime.now();
     final range = await showDateRangePicker(context: context, firstDate: DateTime(2025), lastDate: DateTime(2035), initialDateRange: DateTimeRange(start: now.subtract(const Duration(days: 7)), end: now), helpText: 'PILIH RENTANG HAPUS', saveText: 'PILIH', cancelText: 'BATAL', builder: (c, ch) => Theme(data: ThemeData(brightness: _isLight ? Brightness.light : Brightness.dark, colorScheme: ColorScheme.fromSeed(seedColor: RED, brightness: _isLight ? Brightness.light : Brightness.dark)), child: ch!));
     if (range == null) return;
     final t1 = tglStr(range.start), t2 = tglStr(range.end);
-    final akanHapus = dataTab.where((t) { final tgl = (t['tanggal'] ?? '').toString(); return tgl.compareTo(t1) >= 0 && tgl.compareTo(t2) <= 0; }).toList();
+    final akanHapus = dataTab.where((item) { final t = item as Map; final tgl = (t['tanggal'] ?? '').toString(); return tgl.compareTo(t1) >= 0 && tgl.compareTo(t2) <= 0; }).toList();
     if (akanHapus.isEmpty) { _snack('Kosong di rentang ini'); return; }
     final konf = await showDialog<bool>(context: context, builder: (c) => AlertDialog(title: const Text('⚠ Konfirmasi Hapus'), content: Text('Tab: $tab\nPeriode: ${fmtTgl(t1)} s/d ${fmtTgl(t2)}\nJumlah: ${akanHapus.length}'), actions: [TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('BATAL')), ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: RED), onPressed: () => Navigator.pop(c, true), child: const Text('HAPUS', style: TextStyle(color: Colors.black)))]));
     if (konf != true) return;
@@ -1349,7 +1349,10 @@ class _LihatSheetPageState extends State<LihatSheetPage> {
   }
 
   Widget _card(String tab, List dataTab) {
-    final total = dataTab.fold<int>(0, (s, t) => s + ((t['nominal'] ?? 0) as int));
+    final total = dataTab.fold<int>(0, (s, item) {
+      final t = item as Map;
+      return s + ((t['nominal'] ?? 0) as int);
+    });
     final kosong = dataTab.isEmpty;
     final isExp = expanded.contains(tab);
     final show = isExp ? dataTab : dataTab.take(10).toList();
@@ -1405,22 +1408,25 @@ class _LihatSheetPageState extends State<LihatSheetPage> {
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Column(
                 children: [
-                  ...show.map((t) => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 2),
-                        child: Row(
-                          children: [
-                            Text('#${t['id']}', style: TextStyle(fontSize: 10, color: TEXT_DIM)),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                '${t['tanggal']} ${t['jam']}',
-                                style: TextStyle(fontSize: 11, color: TEXT_SUB),
-                              ),
+                  ...show.map((item) {
+                    final t = item as Map;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(
+                        children: [
+                          Text('#${t['id']}', style: TextStyle(fontSize: 10, color: TEXT_DIM)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '${t['tanggal']} ${t['jam']}',
+                              style: TextStyle(fontSize: 11, color: TEXT_SUB),
                             ),
-                            Text('Rp ${rp((t['nominal'] ?? 0) as int)}', style: TextStyle(fontSize: 11, color: TEXT)),
-                          ],
-                        ),
-                      )),
+                          ),
+                          Text('Rp ${rp((t['nominal'] ?? 0) as int)}', style: TextStyle(fontSize: 11, color: TEXT)),
+                        ],
+                      ),
+                    );
+                  }),
                   if (dataTab.length > 10)
                     TextButton(
                       onPressed: () => setState(() {
