@@ -1302,22 +1302,163 @@ class _LihatSheetPageState extends State<LihatSheetPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: BG, appBar: AppBar(title: const Text('Lihat Sheet'), backgroundColor: BG, actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: loading ? null : _load)]),
-      body: SafeArea(child: loading ? const Center(child: CircularProgressIndicator()) : error != null ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.error, color: RED, size: 64), const SizedBox(height: 16), Text(error!, textAlign: TextAlign.center), const SizedBox(height: 16), ElevatedButton(onPressed: _load, child: const Text('COBA LAGI'))]))) : SingleChildScrollView(padding: const EdgeInsets.all(12), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [if (urutanTab.isEmpty) const Padding(padding: EdgeInsets.all(24), child: Text('Tidak ada tab', textAlign: TextAlign.center)) else ...urutanTab.map((t) => _card(t, dataPerTab[t] ?? []))]))),
+      backgroundColor: BG,
+      appBar: AppBar(
+        title: const Text('Lihat Sheet'),
+        backgroundColor: BG,
+        actions: [
+          IconButton(icon: const Icon(Icons.refresh), onPressed: loading ? null : _load)
+        ],
+      ),
+      body: SafeArea(
+        child: loading
+            ? const Center(child: CircularProgressIndicator())
+            : error != null
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.error, color: RED, size: 64),
+                          const SizedBox(height: 16),
+                          Text(error!, textAlign: TextAlign.center),
+                          const SizedBox(height: 16),
+                          ElevatedButton(onPressed: _load, child: const Text('COBA LAGI')),
+                        ],
+                      ),
+                    ),
+                  )
+                : SingleChildScrollView(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (urutanTab.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.all(24),
+                            child: Text('Tidak ada tab', textAlign: TextAlign.center),
+                          )
+                        else
+                          ...urutanTab.map((t) => _card(t, dataPerTab[t] ?? [])),
+                      ],
+                    ),
+                  ),
+      ),
     );
   }
 
   Widget _card(String tab, List> dataTab) {
     final total = dataTab.fold<int>(0, (s, t) => s + ((t['nominal'] ?? 0) as int));
-    final kosong = dataTab.isEmpty; final isExp = expanded.contains(tab); final show = isExp ? dataTab : dataTab.take(10).toList();
-    return Container(margin: const EdgeInsets.only(bottom: 16), decoration: BoxDecoration(color: CARD, borderRadius: BorderRadius.circular(12), border: Border.all(color: CARD2)), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: CARD2, borderRadius: const BorderRadius.vertical(top: Radius.circular(12))), child: Row(children: [Icon(Icons.table_chart, color: ACCENT, size: 20), const SizedBox(width: 8), Expanded(child: Text(tab, style: TextStyle(fontSize: 15, color: TEXT, fontWeight: FontWeight.bold))), Text(kosong ? 'Kosong' : '${dataTab.length} data', style: TextStyle(fontSize: 12, color: kosong ? TEXT_DIM : TEXT_SUB))])),
-      Padding(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text('Total:', style: TextStyle(fontSize: 12, color: TEXT_SUB)), Text('Rp ${rp(total)}', style: TextStyle(fontSize: 13, color: kosong ? TEXT_DIM : GREEN, fontWeight: FontWeight.bold))])),
-      if (!kosong) Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Column(children: [
-        ...show.map((t) => Padding(padding: const EdgeInsets.symmetric(vertical: 2), child: Row(children: [Text('#${t['id']}', style: TextStyle(fontSize: 10, color: TEXT_DIM)), const SizedBox(width: 8), Expanded(child: Text('${t['tanggal']} ${t['jam']}', style: TextStyle(fontSize: 11, color: TEXT_SUB))), Text('Rp ${rp((t['nominal'] ?? 0) as int)}', style: TextStyle(fontSize: 11, color: TEXT))]))),
-        if (dataTab.length > 10) TextButton(onPressed: () => setState(() { if (isExp) expanded.remove(tab); else expanded.add(tab); }), child: Text(isExp ? '▲ Sembunyikan' : '▼ Lihat semua (${dataTab.length})', style: TextStyle(fontSize: 12, color: ACCENT))),
-      ])),
-      Padding(padding: const EdgeInsets.all(12), child: ElevatedButton.icon(style: ElevatedButton.styleFrom(backgroundColor: kosong ? CARD2 : RED, padding: const EdgeInsets.symmetric(vertical: 12)), onPressed: kosong ? null : () => _hapusRentang(tab, dataTab), icon: Icon(Icons.delete_sweep, color: kosong ? TEXT_DIM : Colors.black), label: Text('HAPUS RENTANG TAB INI', style: TextStyle(color: kosong ? TEXT_DIM : Colors.black, fontWeight: FontWeight.bold, fontSize: 12)))),
-    ]));
+    final kosong = dataTab.isEmpty;
+    final isExp = expanded.contains(tab);
+    final show = isExp ? dataTab : dataTab.take(10).toList();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: CARD,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: CARD2),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: CARD2,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.table_chart, color: ACCENT, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    tab,
+                    style: TextStyle(fontSize: 15, color: TEXT, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                Text(
+                  kosong ? 'Kosong' : '${dataTab.length} data',
+                  style: TextStyle(fontSize: 12, color: kosong ? TEXT_DIM : TEXT_SUB),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Total:', style: TextStyle(fontSize: 12, color: TEXT_SUB)),
+                Text(
+                  'Rp ${rp(total)}',
+                  style: TextStyle(fontSize: 13, color: kosong ? TEXT_DIM : GREEN, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ),
+          if (!kosong)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Column(
+                children: [
+                  ...show.map((t) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Row(
+                          children: [
+                            Text('#${t['id']}', style: TextStyle(fontSize: 10, color: TEXT_DIM)),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                '${t['tanggal']} ${t['jam']}',
+                                style: TextStyle(fontSize: 11, color: TEXT_SUB),
+                              ),
+                            ),
+                            Text('Rp ${rp((t['nominal'] ?? 0) as int)}', style: TextStyle(fontSize: 11, color: TEXT)),
+                          ],
+                        ),
+                      )),
+                  if (dataTab.length > 10)
+                    TextButton(
+                      onPressed: () => setState(() {
+                        if (isExp) {
+                          expanded.remove(tab);
+                        } else {
+                          expanded.add(tab);
+                        }
+                      }),
+                      child: Text(
+                        isExp ? '▲ Sembunyikan' : '▼ Lihat semua (${dataTab.length})',
+                        style: TextStyle(fontSize: 12, color: ACCENT),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: kosong ? CARD2 : RED,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              onPressed: kosong ? null : () => _hapusRentang(tab, dataTab),
+              icon: Icon(Icons.delete_sweep, color: kosong ? TEXT_DIM : Colors.black),
+              label: Text(
+                'HAPUS RENTANG TAB INI',
+                style: TextStyle(
+                  color: kosong ? TEXT_DIM : Colors.black,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
