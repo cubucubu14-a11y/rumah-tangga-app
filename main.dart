@@ -969,21 +969,19 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           const SizedBox(height: 16),
 
           Row(
-  children: [
-    Text('Riwayat (${rw.length})', style: TextStyle(fontSize: 13, color: ACCENT)),
-    const SizedBox(width: 8),
-    // Total hanya muncul jika filter BUKAN 'Semua'
-    if (filterKategori != 'Semua')
-      Text(
-        '• Total: Rp ${rp(totalRiwayat)}',
-        style: TextStyle(
-          fontSize: 12,
-          color: totalRiwayat >= 0 ? GREEN : RED,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-  ],
-),
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Text('Riwayat (${rw.length})', style: TextStyle(fontSize: 13, color: ACCENT)),
+                  const SizedBox(width: 8),
+                  // FITUR BARU: Teks Total Akumulasi
+                  Text(
+                    '• Total: Rp ${rp(totalRiwayat)}', 
+                    style: TextStyle(fontSize: 12, color: totalRiwayat >= 0 ? GREEN : RED, fontWeight: FontWeight.bold)
+                  ),
+                ],
+              ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 decoration: BoxDecoration(color: CARD, borderRadius: BorderRadius.circular(8)),
@@ -995,48 +993,35 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   icon: Icon(Icons.filter_list, color: ACCENT, size: 16),
                   items: ['Semua', 'Rumah Tangga', 'Bahan Baku', 'Bazar', 'Gaji', 'Omset Toko', 'Pemasukan Lain'].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
                   onChanged: (v) { if (v != null) setState(() => filterKategori = v); },
-                )),
+                ),
               ),
             ],
+          ),
           const SizedBox(height: 8),
 
-                  if (rw.isEmpty)
-  Padding(
-    padding: const EdgeInsets.all(24),
-    child: Text('Belum ada transaksi', style: TextStyle(color: TEXT_DIM)),
-  )
-else
-  ...rw.map((it) {
-    if (it is PengRT) return _itemPeng(it);
-    if (it is Gaji) return _itemGaji(it);
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-      decoration: BoxDecoration(color: CARD, borderRadius: BorderRadius.circular(10)),
-      child: Row(
-        children: [
-          Icon(Icons.store, color: ACCENT, size: 18),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('${fmtTgl(it['tanggal'])}', style: TextStyle(color: TEXT_SUB, fontSize: 10)),
-                Text(it['keterangan'], style: TextStyle(color: TEXT, fontSize: 14, fontWeight: FontWeight.w500)),
-                const SizedBox(height: 2),
-                Text('${it['kategori']} • Rp ${rp(it['nominal'])}', style: TextStyle(color: ACCENT, fontSize: 11, fontWeight: FontWeight.bold)),
-              ],
-            ),
-          ),
-        ],
-      ),
+          if (rw.isEmpty) Padding(padding: const EdgeInsets.all(24), child: Text('Belum ada transaksi', style: TextStyle(color: TEXT_DIM))) 
+          else ...rw.map((it) {
+            if (it is PengRT) return _itemPeng(it);
+            if (it is Gaji) return _itemGaji(it);
+            return Container(
+              margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12), decoration: BoxDecoration(color: CARD, borderRadius: BorderRadius.circular(10)),
+              child: Row(children: [
+                Icon(Icons.store, color: ACCENT, size: 18), const SizedBox(width: 12),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('${fmtTgl(it['tanggal'])}', style: TextStyle(color: TEXT_SUB, fontSize: 10)),
+                  Text(it['keterangan'], style: TextStyle(color: TEXT, fontSize: 14, fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 2),
+                  Text('${it['kategori']} • Rp ${rp(it['nominal'])}', style: TextStyle(color: ACCENT, fontSize: 11, fontWeight: FontWeight.bold)),
+                ])),
+              ]),
+            );
+          }),
+          const SizedBox(height: 20),
+        ]),
+      )),
     );
-  }),
-        const SizedBox(height: 20),
-      ]),
-    )),
-  );
-}
+  }
+
   Widget _itemPeng(PengRT t) {
     bool isBazar = t.kategori == 'Bazar';
     return Container(
