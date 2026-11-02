@@ -1348,7 +1348,7 @@ class _LihatSheetPageState extends State<LihatSheetPage> {
     );
   }
 
-  Widget _card(String tab, List> dataTab) {
+  Widget _card(String tab, List dataTab) {
     final total = dataTab.fold<int>(0, (s, t) => s + ((t['nominal'] ?? 0) as int));
     final kosong = dataTab.isEmpty;
     final isExp = expanded.contains(tab);
