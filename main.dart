@@ -38,15 +38,15 @@ void applyTheme(bool light) {
   }
 }
 
-Map<String, Map<String, int>>? gInitCache;
-Map<int, int>? gInitSaldoAwal;
-List<PengRT>? gInitPeng;
-List<Gaji>? gInitGaji;
+Map? gInitCache;
+Map? gInitSaldoAwal;
+List? gInitPeng;
+List? gInitGaji;
 bool gFirstRun = false;
 String gAppTitle = 'Keuangan Nyoya Putri';
 
-Map<String, Map<String, int>> parseCacheStatic(Map raw) {
-  final result = <String, Map<String, int>>{};
+Map parseCacheStatic(Map raw) {
+  final result = {};
   raw.forEach((k, v) {
     final vm = v as Map;
     result[k.toString()] = {
@@ -102,7 +102,7 @@ class _RTAppState extends State<RTApp> {
   @override
   void initState() { super.initState(); _loadTheme(); }
 
-  Future<void> _loadTheme() async {
+  void _loadTheme() async {
     final p = await SharedPreferences.getInstance();
     applyTheme(p.getBool('lightMode') ?? false);
     if (mounted) setState(() {});
@@ -142,12 +142,12 @@ String fmtTgl(String t) {
   final p = t.split('-'); const b = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
   return '${p[2]} ${b[int.parse(p[1]) - 1]} ${p[0]}';
 }
-const List<String> BLN_SHORT = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+const List BLN_SHORT = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
 
-Future> apiGet(Map<String, String> p) async {
+Future apiGet(Map p) async {
   if (SCRIPT_URL.isEmpty) return {'status': 'error', 'message': 'URL belum diatur'};
   try {
-    final uri = Uri.parse(SCRIPT_URL).replace(queryParameters: p);
+    final uri = Uri.parse(SCRIPT_URL).replace(queryParameters: p.map((k, v) => MapEntry(k.toString(), v.toString())));
     final r = await http.get(uri).timeout(const Duration(seconds: 30));
     if (r.statusCode == 200) return jsonDecode(r.body);
     return {'status': 'error', 'message': 'HTTP ${r.statusCode}'};
@@ -157,14 +157,14 @@ Future> apiGet(Map<String, String> p) async {
 class PengRT {
   final int id; String tanggal, jam, kategori, keterangan; int nominal; bool synced;
   PengRT({required this.id, required this.tanggal, required this.jam, required this.kategori, required this.keterangan, required this.nominal, this.synced = false});
-  Map<String, dynamic> toJson() => {'id': id, 'tanggal': tanggal, 'jam': jam, 'kategori': kategori, 'keterangan': keterangan, 'nominal': nominal, 'synced': synced};
+  Map toJson() => {'id': id, 'tanggal': tanggal, 'jam': jam, 'kategori': kategori, 'keterangan': keterangan, 'nominal': nominal, 'synced': synced};
   factory PengRT.fromJson(Map m) => PengRT(id: (m['id'] as num).toInt(), tanggal: m['tanggal'].toString(), jam: m['jam'] ?? '', kategori: m['kategori'] ?? 'Rumah Tangga', keterangan: m['keterangan'] ?? '', nominal: (m['nominal'] as num).toInt(), synced: m['synced'] ?? false);
 }
 
 class Gaji {
   final int id; String tanggal, jam, keterangan; int nominal; bool synced;
   Gaji({required this.id, required this.tanggal, required this.jam, required this.keterangan, required this.nominal, this.synced = false});
-  Map<String, dynamic> toJson() => {'id': id, 'tanggal': tanggal, 'jam': jam, 'keterangan': keterangan, 'nominal': nominal, 'synced': synced};
+  Map toJson() => {'id': id, 'tanggal': tanggal, 'jam': jam, 'keterangan': keterangan, 'nominal': nominal, 'synced': synced};
   factory Gaji.fromJson(Map m) => Gaji(id: (m['id'] as num).toInt(), tanggal: m['tanggal'].toString(), jam: m['jam'] ?? '', keterangan: m['keterangan'] ?? '', nominal: (m['nominal'] as num).toInt(), synced: m['synced'] ?? false);
 }
 
@@ -206,7 +206,7 @@ class SetupUrlPage extends StatefulWidget {
 
 class _SetupUrlPageState extends State<SetupUrlPage> {
   final _ctrl = TextEditingController();
-  Future<void> _simpan() async {
+  void _simpan() async {
     final url = _ctrl.text.trim();
     if (url.isEmpty || !url.startsWith('https://script.google.com')) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('URL tidak valid'))); return;
@@ -244,12 +244,12 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
-  List<PengRT> peng = [];
-  List<Gaji> gaji = [];
-  List<int> pengDel = [];
-  List<int> gajiDel = [];
-  Map<String, Map<String, int>> cache = {};
-  Map<int, int> saldoAwal = {};
+  List peng = [];
+  List gaji = [];
+  List pengDel = [];
+  List gajiDel = [];
+  Map cache = {};
+  Map saldoAwal = {};
 
   PeriodeFilter filter = PeriodeFilter();
   String filterKategori = 'Semua'; 
@@ -289,8 +289,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (s == AppLifecycleState.resumed && !firstRun) _sync(silent: true);
   }
 
-  Map<String, Map<String, int>> _parseCache(Map raw) {
-    final result = <String, Map<String, int>>{};
+  Map _parseCache(Map raw) {
+    final result = {};
     raw.forEach((k, v) {
       final vm = v as Map;
       result[k.toString()] = {
@@ -302,26 +302,26 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return result;
   }
 
-  Future<void> _init() async {
+  void _init() async {
     await _reloadLocal();
     if (mounted) setState(() {});
     if (firstRun) { await _pullAll(initial: true); } else { _sync(silent: true); }
   }
 
-  Future<void> _reloadLocal() async {
+  void _reloadLocal() async {
     final p = await SharedPreferences.getInstance();
     final pj = p.getString('pengRT');
     if (pj != null) peng = (jsonDecode(pj) as List).map((e) => PengRT.fromJson(e)).toList();
     final gj = p.getString('gaji');
     if (gj != null) gaji = (jsonDecode(gj) as List).map((e) => Gaji.fromJson(e)).toList();
     final pd = p.getString('pengRTDel');
-    if (pd != null) pengDel = (jsonDecode(pd) as List).map((e) => (e as num).toInt()).toList();
+    if (pd != null) pengDel = jsonDecode(pd);
     final gd = p.getString('gajiDel');
-    if (gd != null) gajiDel = (jsonDecode(gd) as List).map((e) => (e as num).toInt()).toList();
+    if (gd != null) gajiDel = jsonDecode(gd);
     if (mounted) setState(() {});
   }
 
-  Future<void> _saveAll() async {
+  void _saveAll() async {
     final p = await SharedPreferences.getInstance();
     await p.setString('pengRT', jsonEncode(peng.map((t) => t.toJson()).toList()));
     await p.setString('gaji', jsonEncode(gaji.map((t) => t.toJson()).toList()));
@@ -334,7 +334,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   // ===== HITUNGAN =====
   int get pemasukanRTPeriode {
     int total = 0;
-    for (final g in gaji) {
+    for (final item in gaji) {
+      final g = item as Gaji;
       final t = DateTime.parse(g.tanggal);
       if (t.isBefore(filter.mulai) || t.isAfter(filter.akhir)) continue;
       total += g.nominal;
@@ -345,11 +346,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   int get pemasukanUsahaPeriode {
     int total = 0;
     cache.forEach((tgl, v) {
+      final vm = v as Map;
       final t = DateTime.parse(tgl);
       if (t.isBefore(filter.mulai) || t.isAfter(filter.akhir)) return;
-      total += (v['toko'] ?? 0) + (v['lain'] ?? 0);
+      total += (vm['toko'] ?? 0) + (vm['lain'] ?? 0);
     });
-    for (final p in peng) {
+    for (final item in peng) {
+      final p = item as PengRT;
       final t = DateTime.parse(p.tanggal);
       if (t.isBefore(filter.mulai) || t.isAfter(filter.akhir)) continue;
       if (p.kategori == 'Bazar') total += p.nominal;
@@ -359,7 +362,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   int get pengeluaranRTPeriode {
     int total = 0;
-    for (final p in peng) {
+    for (final item in peng) {
+      final p = item as PengRT;
       final t = DateTime.parse(p.tanggal);
       if (t.isBefore(filter.mulai) || t.isAfter(filter.akhir)) continue;
       if (p.kategori != 'Bahan Baku' && p.kategori != 'Bazar') total += p.nominal;
@@ -370,11 +374,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   int get pengeluaranUsahaPeriode {
     int total = 0;
     cache.forEach((tgl, v) {
+      final vm = v as Map;
       final t = DateTime.parse(tgl);
       if (t.isBefore(filter.mulai) || t.isAfter(filter.akhir)) return;
-      total += (v['keluarKasir'] ?? 0);
+      total += (vm['keluarKasir'] ?? 0);
     });
-    for (final p in peng) {
+    for (final item in peng) {
+      final p = item as PengRT;
       final t = DateTime.parse(p.tanggal);
       if (t.isBefore(filter.mulai) || t.isAfter(filter.akhir)) continue;
       if (p.kategori == 'Bahan Baku') total += p.nominal;
@@ -382,15 +388,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return total;
   }
 
-  Map<String, int> _hitungSampai(DateTime batasAkhir) {
+  Map _hitungSampai(DateTime batasAkhir) {
     int sRT = 0, sUsaha = 0;
-    saldoAwal.forEach((thn, val) { if (thn <= batasAkhir.year) sRT += val; });
-    for (final g in gaji) {
+    saldoAwal.forEach((thn, val) { if (int.parse(thn.toString()) <= batasAkhir.year) sRT += (val as num).toInt(); });
+    for (final item in gaji) {
+      final g = item as Gaji;
       final t = DateTime.parse(g.tanggal);
       if (t.isAfter(batasAkhir)) continue;
       sRT += g.nominal;
     }
-    for (final p in peng) {
+    for (final item in peng) {
+      final p = item as PengRT;
       final t = DateTime.parse(p.tanggal);
       if (t.isAfter(batasAkhir)) continue;
       if (p.kategori == 'Bahan Baku') { sUsaha -= p.nominal; } 
@@ -398,54 +406,69 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       else { sRT -= p.nominal; }
     }
     cache.forEach((tgl, v) {
+      final vm = v as Map;
       final t = DateTime.parse(tgl);
       if (t.isAfter(batasAkhir)) return;
-      sUsaha += (v['toko'] ?? 0) + (v['lain'] ?? 0) - (v['keluarKasir'] ?? 0);
+      sUsaha += (vm['toko'] ?? 0) + (vm['lain'] ?? 0) - (vm['keluarKasir'] ?? 0);
     });
     return {'rt': sRT, 'usaha': sUsaha};
   }
 
-  int get saldoAwalRTPeriode => _hitungSampai(filter.mulai.subtract(const Duration(seconds: 1)))['rt']!;
-  int get saldoAwalUsahaPeriode => _hitungSampai(filter.mulai.subtract(const Duration(seconds: 1)))['usaha']!;
+  int get saldoAwalRTPeriode => (_hitungSampai(filter.mulai.subtract(const Duration(seconds: 1)))['rt'] as num).toInt();
+  int get saldoAwalUsahaPeriode => (_hitungSampai(filter.mulai.subtract(const Duration(seconds: 1)))['usaha'] as num).toInt();
 
   int get saldoRT => saldoAwalRTPeriode + pemasukanRTPeriode - pengeluaranRTPeriode;
   int get saldoUsaha => saldoAwalUsahaPeriode + pemasukanUsahaPeriode - pengeluaranUsahaPeriode;
   int get saldoGlobal => saldoRT + saldoUsaha;
 
-  // Margin Usaha murni periode berjalan saja
   double get marginUsaha {
     if (pemasukanUsahaPeriode <= 0) return 0;
     int nettoPeriodeIni = pemasukanUsahaPeriode - pengeluaranUsahaPeriode;
     return (nettoPeriodeIni / pemasukanUsahaPeriode) * 100;
   }
 
-  int get belumSync => peng.where((t) => !t.synced).length + gaji.where((t) => !t.synced).length + pengDel.length + gajiDel.length;
+  int get belumSync {
+    int unSyncPeng = 0;
+    for (final item in peng) {
+      final p = item as PengRT;
+      if (!p.synced) unSyncPeng++;
+    }
+    int unSyncGaji = 0;
+    for (final item in gaji) {
+      final g = item as Gaji;
+      if (!g.synced) unSyncGaji++;
+    }
+    return unSyncPeng + unSyncGaji + pengDel.length + gajiDel.length;
+  }
 
-  List> _getCacheRiwayat() {
-    final list = >[];
+  List _getCacheRiwayat() {
+    final list = [];
     cache.forEach((tgl, v) {
+      final vm = v as Map;
       final t = DateTime.parse(tgl);
       if (t.isBefore(filter.mulai) || t.isAfter(filter.akhir)) return;
       
-      if ((v['toko'] ?? 0) > 0) {
-        list.add({'tipe': 'Omset Toko', 'tanggal': tgl, 'keterangan': 'Omset Harian', 'kategori': 'Omset Toko', 'nominal': v['toko']!, 'jam': '00:00'});
+      if ((vm['toko'] ?? 0) > 0) {
+        list.add({'tipe': 'Omset Toko', 'tanggal': tgl, 'keterangan': 'Omset Harian', 'kategori': 'Omset Toko', 'nominal': vm['toko']!, 'jam': '00:00'});
       }
-      if ((v['lain'] ?? 0) > 0) {
-        list.add({'tipe': 'Pemasukan Lain', 'tanggal': tgl, 'keterangan': 'Pemasukan Lain', 'kategori': 'Pemasukan Lain', 'nominal': v['lain']!, 'jam': '00:00'});
+      if ((vm['lain'] ?? 0) > 0) {
+        list.add({'tipe': 'Pemasukan Lain', 'tanggal': tgl, 'keterangan': 'Pemasukan Lain', 'kategori': 'Pemasukan Lain', 'nominal': vm['lain']!, 'jam': '00:00'});
       }
     });
     return list;
   }
 
-  List<dynamic> get riwayat {
-    final list = <dynamic>[];
-    for (final p in peng) {
+  List get riwayat {
+    final list = [];
+    for (final item in peng) {
+      final p = item as PengRT;
       final t = DateTime.parse(p.tanggal);
       if (t.isBefore(filter.mulai) || t.isAfter(filter.akhir)) continue;
       if (filterKategori != 'Semua' && p.kategori != filterKategori) continue; 
       list.add(p);
     }
-    for (final g in gaji) {
+    for (final item in gaji) {
+      final g = item as Gaji;
       final t = DateTime.parse(g.tanggal);
       if (t.isBefore(filter.mulai) || t.isAfter(filter.akhir)) continue;
       if (filterKategori != 'Semua' && filterKategori != 'Gaji') continue;
@@ -453,12 +476,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
     final cacheList = _getCacheRiwayat();
     for (final c in cacheList) {
-      if (filterKategori != 'Semua' && c['kategori'] != filterKategori) continue;
+      final mapC = c as Map;
+      if (filterKategori != 'Semua' && mapC['kategori'] != filterKategori) continue;
       list.add(c);
     }
     list.sort((a, b) {
-      final tglA = a is PengRT ? a.tanggal : (a is Gaji ? a.tanggal : a['tanggal']);
-      final tglB = b is PengRT ? b.tanggal : (b is Gaji ? b.tanggal : b['tanggal']);
+      final tglA = a is PengRT ? a.tanggal : (a is Gaji ? a.tanggal : (a as Map)['tanggal']);
+      final tglB = b is PengRT ? b.tanggal : (b is Gaji ? b.tanggal : (b as Map)['tanggal']);
       final cmp = tglB.compareTo(tglA);
       if (cmp != 0) return cmp;
       final idA = a is PengRT ? a.id : (a is Gaji ? a.id : 0);
@@ -484,48 +508,56 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   // ===== SYNC =====
-  Future> _upPeng(PengRT t) => apiGet({'action': t.kategori == 'Bazar' ? 'upsert-bazar' : 'upsert-pengeluaran-rt', 'id': t.id.toString(), 'tanggal': t.tanggal, 'jam': t.jam, 'kategori': t.kategori, 'keterangan': t.keterangan, 'nominal': t.nominal.toString()});
-  Future> _delPeng(int id) => apiGet({'action': 'delete-pengeluaran-rt', 'id': id.toString()});
-  Future> _upGaji(Gaji t) => apiGet({'action': 'upsert-gaji', 'id': t.id.toString(), 'tanggal': t.tanggal, 'jam': t.jam, 'keterangan': t.keterangan, 'nominal': t.nominal.toString()});
-  Future> _delGaji(int id) => apiGet({'action': 'delete-gaji', 'id': id.toString()});
+  Future _upPeng(PengRT t) => apiGet({'action': t.kategori == 'Bazar' ? 'upsert-bazar' : 'upsert-pengeluaran-rt', 'id': t.id.toString(), 'tanggal': t.tanggal, 'jam': t.jam, 'kategori': t.kategori, 'keterangan': t.keterangan, 'nominal': t.nominal.toString()});
+  Future _delPeng(int id) => apiGet({'action': 'delete-pengeluaran-rt', 'id': id.toString()});
+  Future _upGaji(Gaji t) => apiGet({'action': 'upsert-gaji', 'id': t.id.toString(), 'tanggal': t.tanggal, 'jam': t.jam, 'keterangan': t.keterangan, 'nominal': t.nominal.toString()});
+  Future _delGaji(int id) => apiGet({'action': 'delete-gaji', 'id': id.toString()});
 
-  void _mergeRemote(Map<String, dynamic> r) {
+  void _mergeRemote(Map r) {
     if (r['pengRT'] != null) {
-      final lokalRT = peng.map((p) => p.id).toSet();
-      for (final m in (r['pengRT'] as List).cast()) {
-        final id = int.tryParse(m['id'].toString()) ?? 0;
+      final lokalRT = peng.map((item) => (item as PengRT).id).toSet();
+      for (final m in (r['pengRT'] as List)) {
+        final mapM = m as Map;
+        final id = int.tryParse(mapM['id'].toString()) ?? 0;
         if (id == 0 || lokalRT.contains(id)) continue;
-        peng.add(PengRT(id: id, tanggal: m['tanggal'].toString(), jam: m['jam'] ?? '', kategori: m['kategori'] ?? 'Rumah Tangga', keterangan: m['keterangan'] ?? '', nominal: (m['nominal'] as num).toInt(), synced: true));
+        peng.add(PengRT(id: id, tanggal: mapM['tanggal'].toString(), jam: mapM['jam'] ?? '', kategori: mapM['kategori'] ?? 'Rumah Tangga', keterangan: mapM['keterangan'] ?? '', nominal: (mapM['nominal'] as num).toInt(), synced: true));
       }
     }
     if (r['gaji'] != null) {
-      final lokalGJ = gaji.map((g) => g.id).toSet();
-      for (final m in (r['gaji'] as List).cast()) {
-        final id = int.tryParse(m['id'].toString()) ?? 0;
+      final lokalGJ = gaji.map((item) => (item as Gaji).id).toSet();
+      for (final m in (r['gaji'] as List)) {
+        final mapM = m as Map;
+        final id = int.tryParse(mapM['id'].toString()) ?? 0;
         if (id == 0 || lokalGJ.contains(id)) continue;
-        gaji.add(Gaji(id: id, tanggal: m['tanggal'].toString(), jam: m['jam'] ?? '', keterangan: m['keterangan'] ?? '', nominal: (m['nominal'] as num).toInt(), synced: true));
+        gaji.add(Gaji(id: id, tanggal: mapM['tanggal'].toString(), jam: mapM['jam'] ?? '', keterangan: mapM['keterangan'] ?? '', nominal: (mapM['nominal'] as num).toInt(), synced: true));
       }
     }
     if (r['cache'] != null) cache = _parseCache(r['cache'] as Map);
   }
 
-  Future<void> _sync({bool silent = false}) async {
+  void _sync({bool silent = false}) async {
     if (syncing) return;
     setState(() { syncing = true; offline = false; });
     bool hadError = false;
     try {
-      final pn = peng.where((t) => !t.synced).toList();
-      final gn = gaji.where((t) => !t.synced).toList();
-      final pd = List<int>.from(pengDel);
-      final gd = List<int>.from(gajiDel);
+      final pn = peng.where((item) => !(item as PengRT).synced).toList();
+      final gn = gaji.where((item) => !(item as Gaji).synced).toList();
+      final pd = List.from(pengDel);
+      final gd = List.from(gajiDel);
       final total = pn.length + gn.length + pd.length + gd.length;
       int ke = 0, gagal = 0;
-      final sisaP = <int>[]; final sisaG = <int>[];
+      final sisaP = []; final sisaG = [];
 
       for (final id in pd) { ke++; if (mounted) setState(() => progress = 'Hapus RT $ke/$total'); final r = await _delPeng(id); if (r['status'] != 'ok') sisaP.add(id); await Future.delayed(const Duration(milliseconds: 30)); }
       for (final id in gd) { ke++; if (mounted) setState(() => progress = 'Hapus Gaji $ke/$total'); final r = await _delGaji(id); if (r['status'] != 'ok') sisaG.add(id); await Future.delayed(const Duration(milliseconds: 30)); }
-      for (final t in pn) { ke++; if (mounted) setState(() => progress = 'Kirim Data $ke/$total'); final r = await _upPeng(t); if (r['status'] == 'ok') t.synced = true; else gagal++; await Future.delayed(const Duration(milliseconds: 30)); }
-      for (final t in gn) { ke++; if (mounted) setState(() => progress = 'Kirim Gaji $ke/$total'); final r = await _upGaji(t); if (r['status'] == 'ok') t.synced = true; else gagal++; await Future.delayed(const Duration(milliseconds: 30)); }
+      for (final item in pn) {
+        final t = item as PengRT;
+        ke++; if (mounted) setState(() => progress = 'Kirim Data $ke/$total'); final r = await _upPeng(t); if (r['status'] == 'ok') t.synced = true; else gagal++; await Future.delayed(const Duration(milliseconds: 30));
+      }
+      for (final item in gn) {
+        final g = item as Gaji;
+        ke++; if (mounted) setState(() => progress = 'Kirim Gaji $ke/$total'); final r = await _upGaji(g); if (r['status'] == 'ok') g.synced = true; else gagal++; await Future.delayed(const Duration(milliseconds: 30));
+      }
       pengDel = sisaP; gajiDel = sisaG; await _saveAll();
 
       if (mounted) setState(() => progress = 'Tarik data baru...');
@@ -536,15 +568,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     } catch (e) { hadError = true; if (mounted) _snack('Error: $e', err: true); } finally { if (mounted) setState(() { syncing = false; progress = ''; offline = hadError; }); }
   }
 
-  Future<void> _pullAll({bool initial = false}) async {
+  void _pullAll({bool initial = false}) async {
     if (syncing && !initial) return;
     setState(() { syncing = true; progress = initial ? 'Tarik data awal...' : 'Tarik dari Sheets...'; });
     bool hadError = false;
     try {
       if (!initial) {
-        final pn = peng.where((t) => !t.synced).toList(); final gn = gaji.where((t) => !t.synced).toList();
-        for (final t in pn) { await _upPeng(t); t.synced = true; }
-        for (final t in gn) { await _upGaji(t); t.synced = true; }
+        final pn = peng.where((item) => !(item as PengRT).synced).toList(); final gn = gaji.where((item) => !(item as Gaji).synced).toList();
+        for (final item in pn) { await _upPeng(item as PengRT); (item as PengRT).synced = true; }
+        for (final item in gn) { await _upGaji(item as Gaji); (item as Gaji).synced = true; }
         for (final id in pengDel) { await _delPeng(id); }
         for (final id in gajiDel) { await _delGaji(id); }
         pengDel.clear(); gajiDel.clear(); await _saveAll();
@@ -568,7 +600,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m), duration: const Duration(seconds: 4), backgroundColor: ok ? const Color(0xFF2D4F2D) : err ? const Color(0xFF7F3F3F) : null));
   }
 
-  Future<void> _toggleTheme() async {
+  void _toggleTheme() async {
     final p = await SharedPreferences.getInstance();
     final next = !_isLight;
     await p.setBool('lightMode', next);
@@ -576,7 +608,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (mounted) setState(() {});
   }
 
-  Future<void> _ubahJudul() async {
+  void _ubahJudul() async {
     final ctrl = TextEditingController(text: currentTitle);
     final p = await SharedPreferences.getInstance();
     if (!mounted) return;
@@ -596,46 +628,46 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     ));
   }
 
-  Future<void> _tambahPeng() async {
+  void _tambahPeng() async {
     final r = await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) => const TambahPengPage()));
     if (r == true) { await _reloadLocal(); _sync(silent: true); }
   }
 
-  Future<void> _tambahOther() async {
+  void _tambahOther() async {
     final r = await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) => const TambahGajiPage()));
     if (r == true) { await _reloadLocal(); _sync(silent: true); }
   }
 
-  Future<void> _editPeng(PengRT t) async {
+  void _editPeng(PengRT t) async {
     final r = await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) => TambahPengPage(existing: t)));
     if (r == true) { await _reloadLocal(); _sync(silent: true); }
   }
 
-  Future<void> _editBazar(PengRT t) async {
+  void _editBazar(PengRT t) async {
     final r = await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) => TambahGajiPage(existingBazar: t)));
     if (r == true) { await _reloadLocal(); _sync(silent: true); }
   }
 
-  Future<void> _hapusPeng(PengRT t) async {
+  void _hapusPeng(PengRT t) async {
     final ok = await showDialog<bool>(context: context, builder: (c) => AlertDialog(title: const Text('Hapus?'), content: Text('Hapus "${t.keterangan}" Rp ${rp(t.nominal)}?'), actions: [TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('BATAL')), ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: RED), onPressed: () => Navigator.pop(c, true), child: const Text('HAPUS', style: TextStyle(color: Colors.black)))]));
-    if (ok == true) { setState(() { peng.removeWhere((x) => x.id == t.id); if (t.synced) pengDel.add(t.id); }); await _saveAll(); _sync(silent: true); }
+    if (ok == true) { setState(() { peng.removeWhere((item) => (item as PengRT).id == t.id); if (t.synced) pengDel.add(t.id); }); await _saveAll(); _sync(silent: true); }
   }
 
-  Future<void> _hapusGaji(Gaji g) async {
+  void _hapusGaji(Gaji g) async {
     final ok = await showDialog<bool>(context: context, builder: (c) => AlertDialog(title: const Text('Hapus Gaji?'), content: Text('Hapus "${g.keterangan}" Rp ${rp(g.nominal)}?'), actions: [TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('BATAL')), ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: RED), onPressed: () => Navigator.pop(c, true), child: const Text('HAPUS', style: TextStyle(color: Colors.black)))]));
-    if (ok == true) { setState(() { gaji.removeWhere((x) => x.id == g.id); if (g.synced) gajiDel.add(g.id); }); await _saveAll(); _sync(silent: true); }
+    if (ok == true) { setState(() { gaji.removeWhere((item) => (item as Gaji).id == g.id); if (g.synced) gajiDel.add(g.id); }); await _saveAll(); _sync(silent: true); }
   }
 
-  List<int> _listTahun() {
+  List _listTahun() {
     final set = <int>{};
     for (int th = 2025; th <= 2035; th++) set.add(th);
     cache.forEach((tgl, _) { if (tgl.length >= 4) { final th = int.tryParse(tgl.substring(0, 4)); if (th != null) set.add(th); } });
-    for (final p in peng) { if (p.tanggal.length >= 4) { final th = int.tryParse(p.tanggal.substring(0, 4)); if (th != null) set.add(th); } }
-    for (final g in gaji) { if (g.tanggal.length >= 4) { final th = int.tryParse(g.tanggal.substring(0, 4)); if (th != null) set.add(th); } }
+    for (final item in peng) { final p = item as PengRT; if (p.tanggal.length >= 4) { final th = int.tryParse(p.tanggal.substring(0, 4)); if (th != null) set.add(th); } }
+    for (final item in gaji) { final g = item as Gaji; if (g.tanggal.length >= 4) { final th = int.tryParse(g.tanggal.substring(0, 4)); if (th != null) set.add(th); } }
     return set.toList()..sort((a, b) => b.compareTo(a));
   }
 
-  Future<void> _openFilter() async {
+  void _openFilter() async {
     final tahunList = _listTahun();
     int tahunAktif = filter.type == FilterType.bulan && filter.bulanDipilih != null ? filter.bulanDipilih!.year : (filter.type == FilterType.bulanIni ? DateTime.now().year : filter.akhir.year);
     int? bulanAktif;
@@ -670,13 +702,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (r != null && mounted) setState(() => filter = r);
   }
 
-  Future<void> _pilihCustom() async {
+  void _pilihCustom() async {
     final r = await showDateRangePicker(context: context, firstDate: DateTime(2025), lastDate: DateTime(2035), helpText: 'PILIH RENTANG', saveText: 'PILIH', cancelText: 'BATAL', builder: (c, ch) => Theme(data: ThemeData(brightness: _isLight ? Brightness.light : Brightness.dark, colorScheme: ColorScheme.fromSeed(seedColor: ACCENT, brightness: _isLight ? Brightness.light : Brightness.dark)), child: ch!));
     if (r == null) return;
     setState(() => filter = PeriodeFilter(type: FilterType.custom, customMulai: r.start, customAkhir: DateTime(r.end.year, r.end.month, r.end.day, 23, 59, 59)));
   }
 
-  Future<void> _openSaldoAwal() async {
+  void _openSaldoAwal() async {
     final r = await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) => SaldoAwalPage(saldoAwal: saldoAwal, sisaSekarang: saldoGlobal)));
     if (!mounted) return;
     if (r == true) {
@@ -687,12 +719,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _openLihatSheet() async {
+  void _openLihatSheet() async {
     await Navigator.push(context, MaterialPageRoute(builder: (_) => const LihatSheetPage()));
     _pullAll();
   }
 
-  Future<void> _showUrlDialog() async {
+  void _showUrlDialog() async {
     final ctrl = TextEditingController(text: SCRIPT_URL);
     final p = await SharedPreferences.getInstance();
     if (!mounted) return;
@@ -730,23 +762,32 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             }
 
             final stateSaldo = _hitungSampai(sheetFilterMulai.subtract(const Duration(seconds: 1)));
-            final awalRT = stateSaldo['rt']!;
-            final awalUsaha = stateSaldo['usaha']!;
+            final awalRT = (stateSaldo['rt'] as num).toInt();
+            final awalUsaha = (stateSaldo['usaha'] as num).toInt();
 
             int masukRT = 0, keluarRT = 0, masukUsaha = 0, keluarUsaha = 0;
             int omsetToko = 0, bazar = 0, modalKasir = 0, bahanBaku = 0;
 
-            for (final g in gaji) { final t = DateTime.parse(g.tanggal); if (t.isBefore(sheetFilterMulai) || t.isAfter(sheetFilterAkhir)) continue; masukRT += g.nominal; }
-            for (final p in peng) {
-              final t = DateTime.parse(p.tanggal); if (t.isBefore(sheetFilterMulai) || t.isAfter(sheetFilterAkhir)) continue;
+            for (final item in gaji) {
+              final g = item as Gaji;
+              final t = DateTime.parse(g.tanggal);
+              if (t.isBefore(sheetFilterMulai) || t.isAfter(sheetFilterAkhir)) continue;
+              masukRT += g.nominal;
+            }
+            for (final item in peng) {
+              final p = item as PengRT;
+              final t = DateTime.parse(p.tanggal);
+              if (t.isBefore(sheetFilterMulai) || t.isAfter(sheetFilterAkhir)) continue;
               if (p.kategori == 'Bahan Baku') { bahanBaku += p.nominal; } 
               else if (p.kategori == 'Bazar') { bazar += p.nominal; }
               else { keluarRT += p.nominal; }
             }
             cache.forEach((tgl, v) {
-              final t = DateTime.parse(tgl); if (t.isBefore(sheetFilterMulai) || t.isAfter(sheetFilterAkhir)) return;
-              omsetToko += (v['toko'] ?? 0);
-              modalKasir += (v['keluarKasir'] ?? 0);
+              final vm = v as Map;
+              final t = DateTime.parse(tgl);
+              if (t.isBefore(sheetFilterMulai) || t.isAfter(sheetFilterAkhir)) return;
+              omsetToko += (vm['toko'] ?? 0);
+              modalKasir += (vm['keluarKasir'] ?? 0);
             });
             masukUsaha = omsetToko + bazar;
             keluarUsaha = modalKasir + bahanBaku;
@@ -754,7 +795,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             Widget row(String label, String val, {bool bold = false, Color? color}) => Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(label, style: TextStyle(fontSize: 13, color: bold ? TEXT : TEXT_SUB, fontWeight: bold ? FontWeight.bold : FontWeight.normal)), Text(val, style: TextStyle(fontSize: bold ? 15 : 13, color: color ?? TEXT, fontWeight: bold ? FontWeight.bold : FontWeight.normal))]));
             Widget divider() => Divider(color: TEXT_DIM.withOpacity(0.5), height: 20);
 
-            List<Widget> content = [];
+            List content = [];
             String title = '';
 
             if (tipe == 'rt') {
@@ -825,7 +866,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     InkWell(onTap: pilihFilterBaru, child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: CARD2, borderRadius: BorderRadius.circular(8)), child: Row(children: [Text(sheetLabel, style: TextStyle(fontSize: 12, color: TEXT)), const SizedBox(width: 4), Icon(Icons.arrow_drop_down, size: 16, color: TEXT)]))),
                   ]),
                   const SizedBox(height: 16),
-                  Flexible(child: SingleChildScrollView(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: content))),
+                  Flexible(child: SingleChildScrollView(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: content.map((e) => e as Widget).toList()))),
                 ]),
               ),
             );
@@ -1001,15 +1042,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           else ...rw.map((it) {
             if (it is PengRT) return _itemPeng(it);
             if (it is Gaji) return _itemGaji(it);
+            final mapIt = it as Map;
             return Container(
               margin: const EdgeInsets.only(bottom: 8), padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12), decoration: BoxDecoration(color: CARD, borderRadius: BorderRadius.circular(10)),
               child: Row(children: [
                 Icon(Icons.store, color: ACCENT, size: 18), const SizedBox(width: 12),
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('${fmtTgl(it['tanggal'])}', style: TextStyle(color: TEXT_SUB, fontSize: 10)),
-                  Text(it['keterangan'], style: TextStyle(color: TEXT, fontSize: 14, fontWeight: FontWeight.w500)),
+                  Text('${fmtTgl(mapIt['tanggal'])}', style: TextStyle(color: TEXT_SUB, fontSize: 10)),
+                  Text(mapIt['keterangan'], style: TextStyle(color: TEXT, fontSize: 14, fontWeight: FontWeight.w500)),
                   const SizedBox(height: 2),
-                  Text('${it['kategori']} • Rp ${rp(it['nominal'])}', style: TextStyle(color: ACCENT, fontSize: 11, fontWeight: FontWeight.bold)),
+                  Text('${mapIt['kategori']} • Rp ${rp(mapIt['nominal'])}', style: TextStyle(color: ACCENT, fontSize: 11, fontWeight: FontWeight.bold)),
                 ])),
               ]),
             );
@@ -1070,7 +1112,7 @@ class _TambahPengPageState extends State<TambahPengPage> {
   final _nom = TextEditingController();
   DateTime _tgl = DateTime.now();
   String _kat = 'Rumah Tangga';
-  final _kats = ['Rumah Tangga', 'Bahan Baku'];
+  final List _kats = ['Rumah Tangga', 'Bahan Baku'];
 
   @override
   void initState() {
@@ -1083,22 +1125,29 @@ class _TambahPengPageState extends State<TambahPengPage> {
     }
   }
 
-  Future<void> _save() async {
+  void _save() async {
     if (_nom.text.isEmpty || _ket.text.trim().isEmpty) { _snack('Keterangan & Nominal wajib'); return; }
     final n = int.tryParse(_nom.text);
     if (n == null || n <= 0) { _snack('Nominal tidak valid'); return; }
 
     final prefs = await SharedPreferences.getInstance();
     final list = prefs.getString('pengRT');
-    final arr = list != null ? (jsonDecode(list) as List).map((e) => PengRT.fromJson(e)).toList() : <PengRT>[];
+    final arr = list != null ? (jsonDecode(list) as List).map((e) => PengRT.fromJson(e)).toList() : [];
 
     if (widget.existing != null) {
-      final i = arr.indexWhere((x) => x.id == widget.existing!.id);
-      if (i >= 0) { arr[i]..tanggal = tglStr(_tgl)..kategori = _kat..keterangan = _ket.text.trim()..nominal = n..synced = false; }
+      final i = arr.indexWhere((item) => (item as PengRT).id == widget.existing!.id);
+      if (i >= 0) {
+        final existingItem = arr[i] as PengRT;
+        existingItem.tanggal = tglStr(_tgl);
+        existingItem.kategori = _kat;
+        existingItem.keterangan = _ket.text.trim();
+        existingItem.nominal = n;
+        existingItem.synced = false;
+      }
     } else {
       arr.add(PengRT(id: nowStamp(), tanggal: tglStr(_tgl), jam: jamStr(DateTime.now()), kategori: _kat, keterangan: _ket.text.trim(), nominal: n));
     }
-    await prefs.setString('pengRT', jsonEncode(arr.map((t) => t.toJson()).toList()));
+    await prefs.setString('pengRT', jsonEncode(arr.map((t) => (t as PengRT).toJson()).toList()));
     if (!mounted) return;
     Navigator.pop(context, true);
   }
@@ -1113,7 +1162,7 @@ class _TambahPengPageState extends State<TambahPengPage> {
       body: SafeArea(child: ListView(padding: const EdgeInsets.all(16), children: [
         ListTile(title: const Text('Tanggal'), subtitle: Text(fmtTgl(tglStr(_tgl))), trailing: const Icon(Icons.calendar_today), onTap: () async { final p = await showDatePicker(context: context, initialDate: _tgl, firstDate: DateTime(2025), lastDate: DateTime(2035)); if (p != null) setState(() => _tgl = p); }),
         const SizedBox(height: 8),
-        DropdownButtonFormField<String>(value: _kat, decoration: const InputDecoration(labelText: 'Kategori', border: OutlineInputBorder()), items: _kats.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(), onChanged: (v) => setState(() => _kat = v!)),
+        DropdownButtonFormField(value: _kat, decoration: const InputDecoration(labelText: 'Kategori', border: OutlineInputBorder()), items: _kats.map((e) => DropdownMenuItem(value: e.toString(), child: Text(e.toString()))).toList(), onChanged: (v) => setState(() => _kat = v!)),
         const SizedBox(height: 12),
         TextField(controller: _ket, decoration: const InputDecoration(labelText: 'Keterangan', border: OutlineInputBorder())),
         const SizedBox(height: 12),
@@ -1125,7 +1174,7 @@ class _TambahPengPageState extends State<TambahPengPage> {
   }
 }
 
-// ===== TAMBAH/EDIT PEMASUKAN (OTHER & BAZAR) =====
+// ===== TAMBAH/EDIT PEMASUKAN =====
 class TambahGajiPage extends StatefulWidget {
   final PengRT? existingBazar; 
   const TambahGajiPage({super.key, this.existingBazar});
@@ -1138,7 +1187,7 @@ class _TambahGajiPageState extends State<TambahGajiPage> {
   final _nom = TextEditingController();
   DateTime _tgl = DateTime.now();
   String _kat = 'Gaji';
-  final _kats = ['Gaji', 'Bazar'];
+  final List _kats = ['Gaji', 'Bazar'];
 
   @override
   void initState() {
@@ -1151,7 +1200,7 @@ class _TambahGajiPageState extends State<TambahGajiPage> {
     }
   }
 
-  Future<void> _save() async {
+  void _save() async {
     if (_nom.text.isEmpty) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Nominal wajib'))); return; }
     final n = int.tryParse(_nom.text);
     if (n == null || n <= 0) return;
@@ -1162,21 +1211,21 @@ class _TambahGajiPageState extends State<TambahGajiPage> {
       final listP = prefs.getString('pengRT');
       if (listP != null) {
         final arrP = (jsonDecode(listP) as List).map((e) => PengRT.fromJson(e)).toList();
-        arrP.removeWhere((x) => x.id == widget.existingBazar!.id);
-        await prefs.setString('pengRT', jsonEncode(arrP.map((t) => t.toJson()).toList()));
+        arrP.removeWhere((item) => (item as PengRT).id == widget.existingBazar!.id);
+        await prefs.setString('pengRT', jsonEncode(arrP.map((t) => (t as PengRT).toJson()).toList()));
       }
     }
 
     if (_kat == 'Gaji') {
       final list = prefs.getString('gaji');
-      final arr = list != null ? (jsonDecode(list) as List).map((e) => Gaji.fromJson(e)).toList() : <Gaji>[];
+      final arr = list != null ? (jsonDecode(list) as List).map((e) => Gaji.fromJson(e)).toList() : [];
       arr.add(Gaji(id: nowStamp(), tanggal: tglStr(_tgl), jam: jamStr(DateTime.now()), keterangan: _ket.text.trim(), nominal: n));
-      await prefs.setString('gaji', jsonEncode(arr.map((t) => t.toJson()).toList()));
+      await prefs.setString('gaji', jsonEncode(arr.map((t) => (t as Gaji).toJson()).toList()));
     } else {
       final list = prefs.getString('pengRT');
-      final arr = list != null ? (jsonDecode(list) as List).map((e) => PengRT.fromJson(e)).toList() : <PengRT>[];
+      final arr = list != null ? (jsonDecode(list) as List).map((e) => PengRT.fromJson(e)).toList() : [];
       arr.add(PengRT(id: nowStamp(), tanggal: tglStr(_tgl), jam: jamStr(DateTime.now()), kategori: 'Bazar', keterangan: _ket.text.trim(), nominal: n));
-      await prefs.setString('pengRT', jsonEncode(arr.map((t) => t.toJson()).toList()));
+      await prefs.setString('pengRT', jsonEncode(arr.map((t) => (t as PengRT).toJson()).toList()));
     }
     
     if (!mounted) return;
@@ -1191,7 +1240,7 @@ class _TambahGajiPageState extends State<TambahGajiPage> {
       body: SafeArea(child: ListView(padding: const EdgeInsets.all(16), children: [
         ListTile(title: const Text('Tanggal'), subtitle: Text(fmtTgl(tglStr(_tgl))), trailing: const Icon(Icons.calendar_today), onTap: () async { final p = await showDatePicker(context: context, initialDate: _tgl, firstDate: DateTime(2025), lastDate: DateTime(2035)); if (p != null) setState(() => _tgl = p); }),
         const SizedBox(height: 8),
-        DropdownButtonFormField<String>(value: _kat, decoration: const InputDecoration(labelText: 'Kategori Pemasukan', border: OutlineInputBorder()), items: _kats.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(), onChanged: (v) => setState(() => _kat = v!)),
+        DropdownButtonFormField(value: _kat, decoration: const InputDecoration(labelText: 'Kategori Pemasukan', border: OutlineInputBorder()), items: _kats.map((e) => DropdownMenuItem(value: e.toString(), child: Text(e.toString()))).toList(), onChanged: (v) => setState(() => _kat = v!)),
         const SizedBox(height: 12),
         TextField(controller: _ket, decoration: const InputDecoration(labelText: 'Keterangan', border: OutlineInputBorder())),
         const SizedBox(height: 12),
@@ -1205,7 +1254,7 @@ class _TambahGajiPageState extends State<TambahGajiPage> {
 
 // ===== SALDO AWAL =====
 class SaldoAwalPage extends StatefulWidget {
-  final Map<int, int> saldoAwal;
+  final Map saldoAwal;
   final int sisaSekarang;
   const SaldoAwalPage({super.key, required this.saldoAwal, required this.sisaSekarang});
   @override
@@ -1220,11 +1269,11 @@ class _SaldoAwalPageState extends State<SaldoAwalPage> {
   void initState() { super.initState(); _tahun = DateTime.now().year; _ctrl = TextEditingController(text: (widget.saldoAwal[_tahun] ?? 0).toString()); }
   void _pilihTahun(int th) { setState(() { _tahun = th; _ctrl.text = (widget.saldoAwal[th] ?? 0).toString(); }); }
 
-  Future<void> _simpan() async {
+  void _simpan() async {
     final v = int.tryParse(_ctrl.text.trim());
     if (v == null) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Nominal tidak valid'))); return; }
     final prefs = await SharedPreferences.getInstance();
-    final sa = Map<int, int>.from(widget.saldoAwal); sa[_tahun] = v;
+    final sa = Map.from(widget.saldoAwal); sa[_tahun] = v;
     await prefs.setString('saldoAwal', jsonEncode(sa.map((k, val) => MapEntry(k.toString(), val))));
     if (!mounted) return; Navigator.pop(context, true);
   }
@@ -1258,29 +1307,29 @@ class LihatSheetPage extends StatefulWidget {
 class _LihatSheetPageState extends State<LihatSheetPage> {
   bool loading = true;
   String? error;
-  Map<String, List>> dataPerTab = {};
-  List<String> urutanTab = [];
-  Set<String> expanded = {};
+  Map dataPerTab = {};
+  List urutanTab = [];
+  Set expanded = {};
 
   @override
   void initState() { super.initState(); _load(); }
 
-  Future<void> _load() async {
+  void _load() async {
     setState(() { loading = true; error = null; });
     final rTabs = await apiGet({'action': 'list-tabs'});
     if (!mounted) return;
     if (rTabs['status'] != 'ok') { setState(() { loading = false; error = rTabs['message'] ?? 'Gagal'; }); return; }
     final tabs = (rTabs['tabs'] as List).map((e) => e.toString()).toList();
-    final hasil = <String, List>>{};
+    final hasil = {};
     for (final tab in tabs) {
       final r = await apiGet({'action': 'get-data-tab', 'tab': tab});
-      hasil[tab] = r['status'] == 'ok' ? (r['data'] as List).cast>() : [];
+      hasil[tab] = r['status'] == 'ok' ? (r['data'] as List) : [];
     }
     if (!mounted) return;
     setState(() { loading = false; urutanTab = tabs; dataPerTab = hasil; });
   }
 
-  Future<void> _hapusRentang(String tab, List dataTab) async {
+  void _hapusRentang(String tab, List dataTab) async {
     if (dataTab.isEmpty) { _snack('Tidak ada data'); return; }
     final now = DateTime.now();
     final range = await showDateRangePicker(context: context, firstDate: DateTime(2025), lastDate: DateTime(2035), initialDateRange: DateTimeRange(start: now.subtract(const Duration(days: 7)), end: now), helpText: 'PILIH RENTANG HAPUS', saveText: 'PILIH', cancelText: 'BATAL', builder: (c, ch) => Theme(data: ThemeData(brightness: _isLight ? Brightness.light : Brightness.dark, colorScheme: ColorScheme.fromSeed(seedColor: RED, brightness: _isLight ? Brightness.light : Brightness.dark)), child: ch!));
@@ -1340,7 +1389,7 @@ class _LihatSheetPageState extends State<LihatSheetPage> {
                             child: Text('Tidak ada tab', textAlign: TextAlign.center),
                           )
                         else
-                          ...urutanTab.map((t) => _card(t, dataPerTab[t] ?? [])),
+                          ...urutanTab.map((t) => _card(t.toString(), dataPerTab[t] ?? [])),
                       ],
                     ),
                   ),
